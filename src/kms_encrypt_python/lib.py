@@ -31,6 +31,10 @@ __author__ = "Bruno Grieder"
 __copyright__ = "Bruno Grieder"
 __license__ = "MIT"
 
+from kms_encrypt_python.rsa_decrypt import decrypt_with_rsa
+
+from kms_encrypt_python.rsa_encrypt import encrypt_with_rsa
+
 _logger = logging.getLogger(__name__)
 
 
@@ -146,5 +150,15 @@ if __name__ == "__main__":
     #     python -m kms_encrypt_python.skeleton 42
     #
     # run()
+
+    # Crate an RSA keypair
     keypair = create_rsa_key_pair(size=4096, tags=["tag1", "tag2"])
     print("RSA keypair, sk: " + keypair.sk + ", pk: " + keypair.pk)
+
+    # Encrypt and decrypt a message
+    message = "Hello, World!".encode("utf-8")
+    ciphertext = encrypt_with_rsa(key_id=keypair.pk, cleartext=message)
+    cleartext = decrypt_with_rsa(key_id=keypair.sk, ciphertext=ciphertext)
+
+    # Check if the decrypted message is the same as the original message
+    assert cleartext == message

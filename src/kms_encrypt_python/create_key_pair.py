@@ -1,10 +1,8 @@
 import binascii
 import json
-from typing import List, Any
-
+from typing import List
 from jsonpath_ng import ext
 from requests import Response
-import requests
 
 from kms_encrypt_python.kmip_post import kmip_post
 
@@ -167,13 +165,14 @@ def create_keypair_request(key_size: int = 2048, tags: list = None) -> str:
     if tags is not None:
         # Convert list to JSON string
         json_str = json.dumps(tags)
-        # Convert JSON string to bytes
-        json_bytes = json_str.encode('utf-8')
-        # Convert bytes to hexadecimal string
-        hex_str = binascii.hexlify(json_bytes).decode()
+        # Convert JSON string to hex bytes
+        hex_str = json_str.encode('utf-8').hex().upper()
         # Set the tags path
         tags_path = TAGS_PATH.find(req)
         tags_path[0].value['value'][0]['value'][2]['value'] = hex_str
+    else:
+        # remove the VendorAttributes path
+        TAGS_PATH.filter(lambda d: True, req)
 
     return json.dumps(req)
 
@@ -194,5 +193,4 @@ def create_rsa_key_pair(size: int = 2048, tags: List[str] = None, conf_path: str
     req_str = create_keypair_request(size, tags)
     response = kmip_post(req_str, conf_path)
     keypair = parse_keypair_response(response)
-    print(keypair)
     return keypair
