@@ -21,10 +21,16 @@ References:
 """
 
 import argparse
+import binascii
+import json
 import logging
+import os
+import requests
 import sys
-
+from typing import List
+from jsonpath_ng import jsonpath, ext, parse
 from kms_encrypt_python import __version__
+from const_requests import CREATE_RSA_KEY_PAIR
 
 __author__ = "Bruno Grieder"
 __copyright__ = "Bruno Grieder"
@@ -36,8 +42,56 @@ _logger = logging.getLogger(__name__)
 # ---- Python API ----
 # The functions defined in this section can be imported by users in their
 # Python scripts/interactive interpreter, e.g. via
-# `from kms_encrypt_python.skeleton import fib`,
+# `from kms_encrypt_python.lib import fib`,
 # when using this Python module as a library.
+
+
+def read_kms_configuration(conf_path: str = "~/.cosmian/kms.json"):
+    """
+    Read  the KMS configuration
+    
+    Returns:
+      dict: KMS configuration
+    """
+    # Define the file path
+    file_path = os.path.expanduser(conf_path)
+    # Open the file and load the JSON
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    return data
+
+
+def create_rsa_key_pair(size: int = 2048, tags: List[str] = None, conf_path: str = "~/.cosmian/kms.json"):
+    """Create a RSA key pair
+
+    Returns:
+      dict: RSA key pair
+    """
+    conf = read_kms_configuration(conf_path)
+    if "kms_server_url" in conf:
+        kms_server_url = conf["kms_server_url"]
+    else:
+        raise Exception("kms_server_url not found in configuration file " + conf_path)
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    if "kms_access_token" in conf:
+        headers["Authorization"] = "Bearer " + conf["kms_access_token"]
+
+    req = json.loads(CREATE_RSA_KEY_PAIR)
+
+    key_size_path = ext.parse('$..value[?tag = "CryptographicLength"]')
+    matches = key_size_path.find(req)
+    [match.value.update({"value": size}) for match in matches]
+
+    print(json.dumps(req))
+
+    # response = requests.post(kms_server_url, headers=headers, data=json.dumps(data))
+    # 
+    # print(response.json())
+    # return {"pubkey": pubkey, "privkey": privkey}
 
 
 def fib(n):
@@ -136,14 +190,10 @@ def run():
 
 
 if __name__ == "__main__":
-    # ^  This is a guard statement that will prevent the following code from
-    #    being executed in the case someone imports this file instead of
-    #    executing it as a script.
-    #    https://docs.python.org/3/library/__main__.html
-
     # After installing your project with pip, users can also run your Python
     # modules as scripts via the ``-m`` flag, as defined in PEP 338::
     #
     #     python -m kms_encrypt_python.skeleton 42
     #
-    run()
+    # run()
+    create_rsa_key_pair(size=4096)

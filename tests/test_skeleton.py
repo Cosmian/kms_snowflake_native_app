@@ -1,6 +1,6 @@
 import pytest
 
-from kms_encrypt_python.skeleton import fib, main
+from kms_encrypt_python.lib import fib, main
 
 __author__ = "Bruno Grieder"
 __copyright__ = "Bruno Grieder"
