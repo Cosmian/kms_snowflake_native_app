@@ -13,9 +13,13 @@ This project demonstrates
 
 1. Start a KMS Server
 
+... using Docker
+
 ```shell
 docker run -p 9998:9998 --name kms ghcr.io/cosmian/kms:4.16.0
 ```
+
+... or running one of the binaries available in [https://package.cosmian.com](https://package.cosmian.com/kms/last_build/)
 
 2. Run the tests in `tests/test_api.py` to see the examples in action.
 
