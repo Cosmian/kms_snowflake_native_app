@@ -10,12 +10,12 @@ contributions](https://opensource.guide/how-to-contribute) are also
 appreciated.
 
 If you are new to using [git](https://git-scm.com) or have never
-collaborated in a project previously, please have a look at
+collaborated on a project previously; please have a look at
 [contribution-guide.org](https://www.contribution-guide.org/). Other
 resources are also listed in the excellent [guide created by
 FreeCodeCamp](https://github.com/FreeCodeCamp/how-to-contribute-to-open-source)[^1].
 
-Please notice, all users and contributors are expected to be **open,
+Please notice all users and contributors are expected to be **open,
 considerate, reasonable, and respectful**. When in doubt, [Python
 Software Foundation\'s Code of
 Conduct](https://www.python.org/psf/conduct/) is a good reference in
@@ -24,9 +24,9 @@ terms of behavior guidelines.
 # Issue Reports
 
 If you experience bugs or general issues with `kms_encrypt_python`,
-please have a look on the [issue
+please have a look at the [issue
 tracker](https://github.com/%3CUSERNAME%3E/kms_encrypt_python/issues).
-If you don\'t see anything useful there, please feel free to fire an
+If you don't see anything useful there, please feel free to fire an
 issue report.
 
 :::: tip
@@ -34,17 +34,15 @@ issue report.
 Tip
 :::
 
-Please don\'t forget to include the closed issues in your search.
-Sometimes a solution was already reported, and the problem is considered
+Please don't forget to include the closed issues in your search.
+Sometimes, a solution was already reported, and the problem is considered
 **solved**.
 ::::
 
 New issue reports should include information about your programming
 environment (e.g., operating system, Python version) and steps to
-reproduce the problem. Please try also to simplify the reproduction
-steps to a very minimal example that still illustrates the problem you
-are facing. By removing other factors, you help us to identify the root
-cause of the issue.
+reproduce the problem. Please also try to simplify the reproduction
+steps to a minimal example that still illustrates your problem. By removing other factors, you help us identify the issue's root cause.
 
 # Documentation Improvements
 
@@ -56,7 +54,7 @@ mistakes.
 [Sphinx](https://www.sphinx-doc.org/en/master/) as its main
 documentation compiler. This means that the docs are kept in the same
 repository as the project code, and that any documentation update is
-done in the same way was a code contribution.
+done in the same way as a code contribution.
 
 > :::: tip
 > ::: title
@@ -65,7 +63,7 @@ done in the same way was a code contribution.
 >
 > Please notice that the [GitHub web
 > interface](https://docs.github.com/en/repositories/working-with-files/managing-files/editing-files)
-> provides a quick way of propose changes in `kms_encrypt_python`\'s
+> provides a quick way of proposing changes in `kms_encrypt_python`\'s
 > files. While this mechanism can be tricky for normal code
 > contributions, it works perfectly fine for contributing to the docs,
 > and can be quite handy.
@@ -93,18 +91,11 @@ and use Python\'s built-in web server for a preview in your web browser
 
 # Code Contributions
 
-::: todo
-Please include a reference or explanation about the internals of the
-project.
-
-An architecture description, design principles or at least a summary of
-the main concepts will make it easy for potential contributors to get
-started quickly.
-:::
+The code is very simply organized by KMIP operation.
 
 ## Submit an issue
 
-Before you work on any non-trivial code contribution it\'s best to first
+Before you work on any non-trivial code contribution, it\'s best to first
 create a report in the [issue
 tracker](https://github.com/%3CUSERNAME%3E/kms_encrypt_python/issues) to
 start a discussion on the subject. This often provides additional
@@ -227,8 +218,6 @@ or [Miniconda](https://docs.conda.io/en/latest/miniconda.html):
 2.  Go to the web page of your fork and click \"Create pull request\" to
     send your changes for review.
 
-    ::: todo
-    if you are using GitHub, you can uncomment the following paragraph
 
     Find more detailed information in [creating a
     PR](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
