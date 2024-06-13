@@ -51,3 +51,8 @@ A typical file looks like this:
 ```
 
 Use `ckms login` to get a token.
+
+## Build the python module
+
+Install [`tox`](https://pyscaffold.org/en/stable/features.html#configuration-packaging-distribution) and use
+`tox -e build`.
