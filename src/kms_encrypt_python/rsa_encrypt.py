@@ -1,4 +1,5 @@
 import json
+from typing import List, Any
 
 import requests
 from jsonpath_ng import ext
@@ -11,7 +12,7 @@ from kms_encrypt_python.kmip_post import kmip_post
 # ckms rsa encrypt -e ckm-rsa-aes-key-wrap -k e4d41132-8363-4e8a-9758-bdea38e87f6d cleartext.txt -o ciphertext.enc
 #
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-RSA_ENCRYPT = json.loads("""
+RSA_ENCRYPT = """
 {
   "tag": "Encrypt",
   "type": "Structure",
@@ -49,7 +50,7 @@ RSA_ENCRYPT = json.loads("""
     }
   ]
 }
-""")
+"""
 
 # request
 KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
@@ -59,7 +60,7 @@ DATA_PATH = ext.parse('$..value[?tag = "Data"]')
 CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
 
 
-def create_rsa_encrypt_request(key_id: str, data: bytes) -> str:
+def create_rsa_encrypt_request(key_id: str, data: bytes) -> dict:
     """
     Create an RSA encrypt request
 
@@ -70,7 +71,7 @@ def create_rsa_encrypt_request(key_id: str, data: bytes) -> str:
     Returns:
       str: the RSA encrypt request
     """
-    req = RSA_ENCRYPT.copy()
+    req = json.loads(RSA_ENCRYPT)
 
     # set the key ID
     KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
@@ -78,7 +79,7 @@ def create_rsa_encrypt_request(key_id: str, data: bytes) -> str:
     # set the data
     DATA_PATH.find(req)[0].value['value'] = data.hex().upper()
 
-    return json.dumps(req)
+    return req
 
 
 def parse_encrypt_response(response: requests.Response) -> bytes:
@@ -91,8 +92,11 @@ def parse_encrypt_response(response: requests.Response) -> bytes:
     Returns:
       bytes: the encrypted data
     """
-    response_json = response.json()
-    return bytes.fromhex(CIPHERTEXT_PATH.find(response_json)[0].value['value'])
+    return parse_encrypt_response_payload(response.json())
+
+
+def parse_encrypt_response_payload(payload: dict) -> bytes:
+    return bytes.fromhex(CIPHERTEXT_PATH.find(payload)[0].value['value'])
 
 
 def encrypt_with_rsa(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
@@ -107,7 +111,11 @@ def encrypt_with_rsa(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian
     Returns:
       bytes: ciphertext
     """
-    req_str = create_rsa_encrypt_request(key_id, cleartext)
-    response = kmip_post(req_str, conf_path)
+    req = create_rsa_encrypt_request(key_id, cleartext)
+    response = kmip_post(json.dumps(req), conf_path)
     ciphertext = parse_encrypt_response(response)
     return ciphertext
+
+
+def bulk_encrypt_with_rsa(key_id: str, cleartext: List[bytes], conf_path: str = "~/.cosmian/kms.json") -> bytes:
+    pass

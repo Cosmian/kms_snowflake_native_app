@@ -1,4 +1,3 @@
-import binascii
 import json
 from typing import List
 from jsonpath_ng import ext
@@ -153,7 +152,7 @@ PRIVATE_KEY_PATH = ext.parse('$..value[?tag = "PrivateKeyUniqueIdentifier"]')
 PUBLIC_KEY_PATH = ext.parse('$..value[?tag = "PublicKeyUniqueIdentifier"]')
 
 
-def create_keypair_request(key_size: int = 2048, tags: list = None) -> str:
+def create_keypair_request(key_size: int = 2048, tags: list = None) -> dict:
     req = CREATE_RSA_KEYPAIR.copy()
 
     # Set the  key size path
@@ -174,13 +173,17 @@ def create_keypair_request(key_size: int = 2048, tags: list = None) -> str:
         # remove the VendorAttributes path
         TAGS_PATH.filter(lambda d: True, req)
 
-    return json.dumps(req)
+    return req
 
 
 def parse_keypair_response(response: Response) -> Keypair:
     response_json = response.json()
-    private_key = PRIVATE_KEY_PATH.find(response_json)[0].value['value']
-    public_key = PUBLIC_KEY_PATH.find(response_json)[0].value['value']
+    return parse_keypair_response_payload(response_json)
+
+
+def parse_keypair_response_payload(payload: dict) -> Keypair:
+    private_key = PRIVATE_KEY_PATH.find(payload)[0].value['value']
+    public_key = PUBLIC_KEY_PATH.find(payload)[0].value['value']
     return Keypair(sk=private_key, pk=public_key)
 
 
@@ -190,7 +193,7 @@ def create_rsa_key_pair(size: int = 2048, tags: List[str] = None, conf_path: str
     Returns:
         dict: RSA key pair (sk,pk)
     """
-    req_str = create_keypair_request(size, tags)
-    response = kmip_post(req_str, conf_path)
+    req = create_keypair_request(size, tags)
+    response = kmip_post(json.dumps(req), conf_path)
     keypair = parse_keypair_response(response)
     return keypair

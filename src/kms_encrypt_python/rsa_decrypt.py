@@ -11,7 +11,7 @@ from kms_encrypt_python.kmip_post import kmip_post
 # ckms rsa decrypt -e ckm-rsa-aes-key-wrap -k 96125549-e115-42b9-ad57-9b51ee3ebed3 ciphertext.enc -o cleartext.txt
 #
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-RSA_DECRYPT = json.loads("""
+RSA_DECRYPT = """
 {
   "tag": "Decrypt",
   "type": "Structure",
@@ -49,7 +49,7 @@ RSA_DECRYPT = json.loads("""
     }
   ]
 }
-""")
+"""
 
 # request
 KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
@@ -59,7 +59,7 @@ DATA_PATH = ext.parse('$..value[?tag = "Data"]')
 CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
 
 
-def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> str:
+def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
     """
     Create an RSA decrypt request
 
@@ -70,7 +70,7 @@ def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> str:
     Returns:
       str: the RSA encrypt request
     """
-    req = RSA_DECRYPT.copy()
+    req = json.loads(RSA_DECRYPT)
 
     # set the key ID
     KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
@@ -78,7 +78,7 @@ def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> str:
     # set the ciphertext
     DATA_PATH.find(req)[0].value['value'] = ciphertext.hex().upper()
 
-    return json.dumps(req)
+    return req
 
 
 def parse_decrypt_response(response: requests.Response) -> bytes:
@@ -91,8 +91,11 @@ def parse_decrypt_response(response: requests.Response) -> bytes:
     Returns:
       bytes: the cleartext data
     """
-    response_json = response.json()
-    return bytes.fromhex(CIPHERTEXT_PATH.find(response_json)[0].value['value'])
+    return parse_decrypt_response_payload(response.json())
+
+
+def parse_decrypt_response_payload(payload: dict) -> bytes:
+    return bytes.fromhex(CIPHERTEXT_PATH.find(payload)[0].value['value'])
 
 
 def decrypt_with_rsa(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
@@ -107,7 +110,7 @@ def decrypt_with_rsa(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmia
     Returns:
       bytes: cleartext
     """
-    req_str = create_rsa_decrypt_request(key_id, ciphertext)
-    response = kmip_post(req_str, conf_path)
+    req = create_rsa_decrypt_request(key_id, ciphertext)
+    response = kmip_post(json.dumps(req), conf_path)
     cleartext = parse_decrypt_response(response)
     return cleartext
