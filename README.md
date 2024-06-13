@@ -5,7 +5,7 @@ Cosmian KMS.
 
 This project demonstrates
 
-- the creation of a 4096 bit RSA key pair
+- the creation of a 4096-bit RSA key pair
 - the encryption and decryption of a single message (using CKM_RSA_AES_KEY_WRAP)
 - the encryption and decryption of multiple messages in a single request (bulk/batch feature of KMIP)
 
@@ -21,17 +21,17 @@ docker run -p 9998:9998 --name kms ghcr.io/cosmian/kms:4.16.0
 
 ## Developing more KMIP calls
 
-Follow the documentation in https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/
+Follow the documentation at https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/
 
 
 ## Authenticating to the server
 
 Check [this documentation](https://docs.cosmian.com/cosmian_key_management_system/authentication/).
 
-This project demonstrates how to used OAuth2/OIDC to authenticate to the KMS server.
+This project demonstrates using OAuth2/OIDC to authenticate to the KMS server optionally.
 
 URL and authentication information is loaded from the configuration file `~/.cosmian/kms.json`:
-a typical file looks like this:
+A typical file looks like this:
 
 ```json
 {
