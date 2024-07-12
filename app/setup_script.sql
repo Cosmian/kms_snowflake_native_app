@@ -64,7 +64,7 @@ LANGUAGE SQL
 AS
 $$
 BEGIN
-  CREATE PROCEDURE IF NOT EXISTS core.encrypt(user VARCHAR, v VARCHAR)
+  CREATE PROCEDURE IF NOT EXISTS core.kms_encrypt(user VARCHAR, v VARCHAR)
   RETURNS VARIANT
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
@@ -74,7 +74,7 @@ BEGIN
   HANDLER = 'cosmian_kms.encrypt';
 
 
-  CREATE PROCEDURE IF NOT EXISTS core.create_keypair(user VARCHAR)
+  CREATE PROCEDURE IF NOT EXISTS core.kms_create_keypair(user VARCHAR)
   RETURNS VARIANT
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
@@ -83,7 +83,7 @@ BEGIN
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
   HANDLER = 'cosmian_kms.create_keypair';
 
-  CREATE PROCEDURE IF NOT EXISTS core.decrypt(user VARCHAR, v VARCHAR)
+  CREATE PROCEDURE IF NOT EXISTS core.kms_decrypt(user VARCHAR, v VARCHAR)
   RETURNS VARIANT
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
@@ -92,9 +92,9 @@ BEGIN
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
   HANDLER = 'cosmian_kms.decrypt';
 
-  GRANT USAGE ON PROCEDURE core.create_keypair(VARCHAR) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON PROCEDURE core.encrypt(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON PROCEDURE core.decrypt(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON PROCEDURE core.kms_create_keypair(VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON PROCEDURE core.kms_encrypt(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON PROCEDURE core.kms_decrypt(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
 
   RETURN 'SUCCESS';
 END;

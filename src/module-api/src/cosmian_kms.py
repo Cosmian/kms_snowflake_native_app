@@ -7,16 +7,18 @@ from typing import List
 
 
 def encrypt(user_pk, data):
-    return encrypt_with_rsa(key_id=user_pk, cleartext=bytes(data)).decode("utf-8")
+    res = encrypt_with_rsa(key_id=user_pk, cleartext=data.encode("utf-8"))
+    return res.hex()
 
 
 def decrypt(user_sk, data):
-    return decrypt_with_rsa(key_id=user_sk, ciphertext=bytes(data)).decode("utf-8")
+    res = decrypt_with_rsa(key_id=user_sk, ciphertext=bytes.fromhex(data))
+    return res.decode("utf-8")
 
 
 def create_keypair(user):
-    keys = create_rsa_key_pair(size=4098, tags=["tag1", "tag2"])
-    return (keys.pk+" . "+keys.sk)
+    keys = create_rsa_key_pair(size=2048, tags=["tag1", "tag2"])
+    return (keys.pk, keys.sk)
 
 
 configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
