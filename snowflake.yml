@@ -1,6 +1,6 @@
 definition_version: 1
 native_app:
-  name: cosmian_external_access_integration_app
+  name: cosmian_kms
   source_stage: app_src.stage
   artifacts:
     - src: app/*
