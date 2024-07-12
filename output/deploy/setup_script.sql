@@ -1,1 +1,0 @@
-/Users/adamkhayam/git/native-apps-examples/external-access-integration/app/setup_script.sql

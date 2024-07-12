@@ -9,19 +9,20 @@ from typing import List
 def encrypt(user_pk, data):
     return encrypt_with_rsa(key_id=user_pk, cleartext=bytes(data)).decode("utf-8")
 
-def decrypt(user_sk,data):
+
+def decrypt(user_sk, data):
     return decrypt_with_rsa(key_id=user_sk, ciphertext=bytes(data)).decode("utf-8")
 
+
 def create_keypair(user):
-    keys =   create_rsa_key_pair(size=4098,tags=["tag1", "tag2"])
+    keys = create_rsa_key_pair(size=4098, tags=["tag1", "tag2"])
     return (keys.pk+" . "+keys.sk)
 
 
-configuration = """{
-  "kms_server_url": "https://snowflake-kms.cosmian.dev/"
-}"""
+configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
 
-### POST
+# POST
+
 
 def read_kms_configuration(conf: str = configuration):
     """
@@ -31,11 +32,11 @@ def read_kms_configuration(conf: str = configuration):
       dict: KMS configuration
     """
     # Define the file path
-    #file_path = os.path.expanduser(conf_path)
+    # file_path = os.path.expanduser(conf_path)
     # Open the file and load the JSON
-    #with open(file_path, 'r') as f:
-    data = json.load(conf)
-    #return data
+    # with open(file_path, 'r') as f:
+    data = json.loads(conf)
+    return data
 
 
 def kmip_post(json_str: str, conf: str = configuration) -> requests.Response:
@@ -47,9 +48,9 @@ def kmip_post(json_str: str, conf: str = configuration) -> requests.Response:
     """
     conf = read_kms_configuration(conf)
 
-    #if "kms_server_url" in conf:
+    # if "kms_server_url" in conf:
     kms_server_url = conf["kms_server_url"] + "/kmip/2_1"
-    #else:
+    # else:
     #    raise Exception("kms_server_url not found in configuration file " + conf)
 
     headers = {
@@ -61,9 +62,10 @@ def kmip_post(json_str: str, conf: str = configuration) -> requests.Response:
 
     return requests.post(kms_server_url, headers=headers, data=json_str)
 
-#### ENCRYPT
+# ENCRYPT
 
 # This JSON was generated using the following CLI command:
+
 
 # RUST_LOG="cosmian_kms_client::kms_rest_client=debug" \
 # ckms rsa encrypt -e ckm-rsa-aes-key-wrap -k e4d41132-8363-4e8a-9758-bdea38e87f6d cleartext.txt -o ciphertext.enc
@@ -178,7 +180,7 @@ def bulk_encrypt_with_rsa(key_id: str, cleartext: List[bytes], conf: str = confi
     pass
 
 
-#### DECRYPT
+# DECRYPT
 
 
 # This JSON was generated using the following CLI command:
@@ -292,7 +294,7 @@ def decrypt_with_rsa(key_id: str, ciphertext: bytes, conf: str = configuration) 
     return cleartext
 
 
-### CREATE KEY PAIR
+# CREATE KEY PAIR
 
 
 class Keypair:
@@ -488,3 +490,5 @@ def create_rsa_key_pair(size: int = 2048, tags: List[str] = None, conf: str = co
     return keypair
 
 
+if __name__ == "__main__":
+    create_keypair('azer')
