@@ -1,0 +1,14 @@
+{
+    "kms_server_url": "snowflake-kms.cosmian.dev",
+    "kms_access_token": "",
+    "oauth2_conf": {
+        "client_id": "",
+        "client_secret": "",
+        "authorize_url": "",
+        "token_url": "",
+        "scopes": [
+            "abc",
+            "def"
+        ]
+    }
+}

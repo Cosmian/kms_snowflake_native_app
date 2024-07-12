@@ -1,62 +1,51 @@
-# kms_encrypt_python
+# External Access Integration
 
-Example of using Python to perform encryption and decryption using the
-Cosmian KMS.
+This Snowflake Native Application sample demonstrates how to add external access integrations as references within a native application.
 
-This project demonstrates
+## Getting Started
 
-- the creation of a 4096-bit RSA key pair
-- the encryption and decryption of a single message (using CKM_RSA_AES_KEY_WRAP)
-- the encryption and decryption of multiple messages in a single request (bulk/batch feature of KMIP)
+This application shows a line chart based on the price timeline of each crypto coin by accessing the [Coincap API](https://docs.coincap.io/) that provides the price timeline in real time of each coin in the market.
 
-## Running the tests
+To connect to the API, the native application creates a secure connection by creating an [External Access Integration](https://docs.snowflake.com/en/sql-reference/sql/create-external-access-integration) from the application to the external API.
 
-1. Start a KMS Server
+The setup script contains some key steps to pay attention to:
 
-... using Docker
+- Define an EAI reference in the [manifest.yml](app/manifest.yml).
+- Define a `configuration_callback` and `register_callback` in the [setup](app/setup_script.sql) script file.
+- Define a stored procedure that creates `function` or `stored procedure` objects binding the EAI reference after it is set.
 
-```shell
-docker run -p 9998:9998 --name kms ghcr.io/cosmian/kms:4.16.0
+### Installation
+
+Execute the following command:
+
+```bash
+snow app run
 ```
 
-... or running one of the binaries available in [https://package.cosmian.com](https://package.cosmian.com/kms/last_build/)
+### First-time setup
 
-2. Run the tests in `tests/test_api.py` to see the examples in action.
+You must bind a reference before using the app:
 
-## Developing more KMIP calls
+   - *external_access_reference:* The EAI reference will create a [NETWORK RULE](https://docs.snowflake.com/en/sql-reference/sql/create-network-rule) and an External Access Integration with the `json` defined in the `configuration_callback`.
 
-Follow the documentation at https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/
+> These references and permissions are defined in [manifest.yml](app/manifest.yml).
 
+Once the EAI reference is created, you can continue to the app by clicking the button. Before the app is loaded, the `create_eai_objects` is called, and creates two new procedures that uses the EAI created to get data from the API.
 
-## Authenticating to the server
+### Test the app
 
-Check [this documentation](https://docs.cosmian.com/cosmian_key_management_system/authentication/).
+When you continue to the app, you must see two different controls:
 
-This project demonstrates using OAuth2/OIDC to authenticate to the KMS server optionally.
+- A date picker that select a date range.
+- A select box that contains all the crypto coin names.
 
-URL and authentication information is loaded from the configuration file `~/.cosmian/kms.json`:
-A typical file looks like this:
+The date picker selects the range on where you want to get the price timeline of the choosen coin in the select box and the select box choose the coin which you want to see the price timeline.
 
-```json
-{
-    "kms_server_url": "https://kms.acme.com",
-    "kms_access_token": "eyJhbGciOiJSUz..MDI3NGJiZWE2MmRhMmE4YzRhMTIiLCJ0eXAiOiJ",
-    "oauth2_conf": {
-        "client_id": "99673...auth.com",
-        "client_secret": "GOCSPX...1M",
-        "authorize_url": "https:/auth.com/auth",
-        "token_url": "https://auth.com/token",
-        "scopes": [
-            "abc",
-            "def"
-        ]
-    }
-}
-```
+When you change the values from both controls, the line chart below will be refreshed with the new information.
 
-Use `ckms login` to get a token.
+### Additional Resources
 
-## Build the python module
-
-Install [`tox`](https://pyscaffold.org/en/stable/features.html#configuration-packaging-distribution) and use
-`tox -e build`.
+- [Grant access to a Snowflake Native App](https://other-docs.snowflake.com/en/native-apps/consumer-granting-privs)
+- [Create a user interface to request privileges and references](https://docs.snowflake.com/en/developer-guide/native-apps/requesting-ui)
+- [CREATE EXTERNAL ACCESS INTEGRATION](https://docs.snowflake.com/en/sql-reference/sql/create-external-access-integration)
+- [CREATE NETWORK RULE](https://docs.snowflake.com/en/sql-reference/sql/create-network-rule)
