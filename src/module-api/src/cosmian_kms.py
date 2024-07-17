@@ -18,6 +18,10 @@ def encrypt(data):
     pks = data[1]
     ds = data[2]
     df = sorted(tuple(zip(ids, pks, ds)),key=itemgetter(0))
+    try:
+      assert len(ids) == 20
+    except AssertionError as e:
+        raise AssertionError("length of the list is: "+ str(len(ids)))
     for (id,pk,d) in df:
         # try:
         #   assert pk == d
@@ -42,6 +46,10 @@ def decrypt(data):
     sks = data[1]
     ds = data[2]
     df = sorted(tuple(zip(ids, sks, ds)),key=itemgetter(0))
+    try:
+      assert len(ids) == 20
+    except AssertionError as e:
+        raise AssertionError("length of the list is: "+ str(len(ids)))
     for (id,sk,d) in df:
         # try:
         #   assert pk == d
