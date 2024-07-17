@@ -4,16 +4,59 @@ import requests
 from requests import Response
 from jsonpath_ng import ext
 from typing import List
+import pandas
+import _snowflake
+from _snowflake import vectorized
+from operator import itemgetter
 
+@vectorized(input=pandas.DataFrame, max_batch_size=25)
+def encrypt(data):
+    #res = encrypt_with_rsa(key_id=data[0], cleartext=data[1].encode("utf-8"))
+    #return res.hex()
+    encryptions = []
+    ids = data[0]
+    pks = data[1]
+    ds = data[2]
+    df = sorted(tuple(zip(ids, pks, ds)),key=itemgetter(0))
+    for (id,pk,d) in df:
+        # try:
+        #   assert pk == d
+        # except AssertionError as e:
+        #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
+        enc = create_rsa_encrypt_request(key_id=pk, data=d.encode("utf-8"))
+        encryptions.append(enc)
+    bulk = post_operations(encryptions)
+    results = []
+    for b in bulk:
+      assert b.operation == 'Encrypt'
+      res = parse_encrypt_response_payload(b.to_dict())
+      results.append(res.hex())
+    return pandas.Series(results)
 
-def encrypt(user_pk, data):
-    res = encrypt_with_rsa(key_id=user_pk, cleartext=data.encode("utf-8"))
-    return res.hex()
+@vectorized(input=pandas.DataFrame, max_batch_size=25)
+def decrypt(data):
+    #res = decrypt_with_rsa(key_id=user_key, ciphertext=bytes.fromhex(data))
+    #return res.decode("utf-8")
+    decryptions = []
+    ids = data[0]
+    sks = data[1]
+    ds = data[2]
+    df = sorted(tuple(zip(ids, sks, ds)),key=itemgetter(0))
+    for (id,sk,d) in df:
+        # try:
+        #   assert pk == d
+        # except AssertionError as e:
+        #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
+        dec = create_rsa_decrypt_request(key_id=sk, ciphertext=bytes.fromhex(d))
+        decryptions.append(dec)
+    bulk = post_operations(decryptions)
+    results = []
+    for b in bulk:
+      assert b.operation == 'Decrypt'
+      res = parse_decrypt_response_payload(b.to_dict())
+      results.append(res.decode("utf-8"))
+    return pandas.Series(results)
 
-
-def decrypt(user_sk, data):
-    res = decrypt_with_rsa(key_id=user_sk, ciphertext=bytes.fromhex(data))
-    return res.decode("utf-8")
 
 
 def create_keypair(user):
@@ -490,6 +533,138 @@ def create_rsa_key_pair(size: int = 2048, tags: List[str] = None, conf: str = co
     response = kmip_post(json.dumps(req), conf)
     keypair = parse_keypair_response(response)
     return keypair
+
+
+class BulkResult:
+    operation: str
+    value: dict
+
+    def __init__(self, operation: str, value: dict):
+        self.operation = operation
+        self.value = value
+
+    def __str__(self):
+        return f"{self.operation}: {self.value}"
+
+    def to_dict(self):
+        return {
+            'operation': self.operation,
+            'value': self.value
+        }
+
+
+BULK_MESSAGE = """
+{
+    "tag": "Message",
+    "type": "Structure",
+    "value": [
+        {
+            "tag": "Header",
+            "type": "Structure",
+            "value": [
+                {
+                    "tag": "ProtocolVersion",
+                    "type": "Structure",
+                    "value": [
+                        {
+                            "tag": "ProtocolVersionMajor",
+                            "type": "Integer",
+                            "value": 2
+                        },
+                        {
+                            "tag": "ProtocolVersionMinor",
+                            "type": "Integer",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "tag": "MaximumResponseSize",
+                    "type": "Integer",
+                    "value": 9999
+                },
+                {
+                    "tag": "BatchCount",
+                    "type": "Integer",
+                    "value": 2
+                }
+            ]
+        },
+        {
+            "tag": "Items",
+            "type": "Structure",
+            "value": [
+
+            ]
+        }
+    ]
+}
+"""
+
+ITEMS_PATH = ext.parse('$..value[?tag = "Items"]')
+
+BATCHED_OPERATION = """
+ {
+    "tag": "Items",
+    "type": "Structure",
+    "value": [
+        {
+            "tag": "Operation",
+            "type": "Enumeration",
+            "value": "CreateKeyPair"
+        },
+        {
+            "tag": "RequestPayload",
+            "type": "Structure",
+            "value": []
+        }
+    ]
+}
+"""
+
+RESPONSE_OPERATION = ext.parse('$..value[?tag = "Operation"]')
+RESPONSE_PAYLOAD_PATH = ext.parse('$..value[?tag = "ResponsePayload"]')
+
+
+def create_bulk_message(operations: List[dict]) -> dict:
+    """
+    Create a bulk message
+
+    Returns:
+      dict: the bulk message
+    """
+    ops = []
+    for operation in operations:
+        op = json.loads(BATCHED_OPERATION)
+        op["value"][0]["value"] = operation['tag']
+        op["value"][1]["value"] = operation["value"]
+        ops.append(op)
+
+    bulk_message = json.loads(BULK_MESSAGE)
+    ITEMS_PATH.find(bulk_message)[0].value['value'] = ops
+    return bulk_message
+
+
+def parse_bulk_responses(response: requests.Response) -> List[BulkResult]:
+    response_json = response.json()
+    res = []
+    for item in ITEMS_PATH.find(response_json)[0].value['value']:
+        operation_tag = RESPONSE_OPERATION.find(item)[0].value['value']
+        payload = RESPONSE_PAYLOAD_PATH.find(item)[0].value['value']
+        res.append(BulkResult(operation_tag, payload))
+    return res
+
+
+def post_operations(operations: List[dict], conf_path: str = configuration) -> List[BulkResult]:
+    """Post multiple operations
+
+    Returns:
+        List[dict]: list of Bulk Results
+    """
+    req = create_bulk_message(operations)
+    response = kmip_post(json.dumps(req), conf_path)
+    results = parse_bulk_responses(response)
+    return results
 
 
 if __name__ == "__main__":
