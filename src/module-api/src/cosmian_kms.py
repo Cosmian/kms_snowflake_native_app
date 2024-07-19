@@ -9,60 +9,60 @@ import _snowflake
 from _snowflake import vectorized
 from operator import itemgetter
 
-@vectorized(input=pandas.DataFrame, max_batch_size=25)
+@vectorized(input=pandas.DataFrame)
 def encrypt(data):
     #res = encrypt_with_rsa(key_id=data[0], cleartext=data[1].encode("utf-8"))
     #return res.hex()
     encryptions = []
-    ids = data[0]
-    pks = data[1]
-    ds = data[2]
-    df = sorted(tuple(zip(ids, pks, ds)),key=itemgetter(0))
-    try:
-      assert len(ids) == 20
-    except AssertionError as e:
-        raise AssertionError("length of the list is: "+ str(len(ids)))
-    for (id,pk,d) in df:
+    pks = data[0]
+    ds = data[1]
+    # try:
+    #   assert len(pks) == 1000
+    # except AssertionError as e:
+    #     raise AssertionError("length of the list is: "+ str(len(pks)))
+    for i in range(0,len(ds)):
         # try:
         #   assert pk == d
         # except AssertionError as e:
         #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
-        enc = create_rsa_encrypt_request(key_id=pk, data=d.encode("utf-8"))
+        enc = create_rsa_encrypt_request(key_id=pks[i], data=ds[i].encode("utf-8"))
         encryptions.append(enc)
     bulk = post_operations(encryptions)
     results = []
     for b in bulk:
       assert b.operation == 'Encrypt'
       res = parse_encrypt_response_payload(b.to_dict())
-      results.append(res.hex())
+      results.append(res)
     return pandas.Series(results)
 
-@vectorized(input=pandas.DataFrame, max_batch_size=25)
+@vectorized(input=pandas.DataFrame)
+def identity(data):
+    return data[1]
+
+@vectorized(input=pandas.DataFrame)
 def decrypt(data):
     #res = decrypt_with_rsa(key_id=user_key, ciphertext=bytes.fromhex(data))
     #return res.decode("utf-8")
     decryptions = []
-    ids = data[0]
-    sks = data[1]
-    ds = data[2]
-    df = sorted(tuple(zip(ids, sks, ds)),key=itemgetter(0))
-    try:
-      assert len(ids) == 20
-    except AssertionError as e:
-        raise AssertionError("length of the list is: "+ str(len(ids)))
-    for (id,sk,d) in df:
+    sks = data[0]
+    ds = data[1]
+    # try:
+    #   assert len(sks) == 1000
+    # except AssertionError as e:
+    #     raise AssertionError("length of the list is: "+ str(len(sks)))
+    for i in range(0,len(ds)):
         # try:
         #   assert pk == d
         # except AssertionError as e:
         #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
-        dec = create_rsa_decrypt_request(key_id=sk, ciphertext=bytes.fromhex(d))
+        dec = create_rsa_decrypt_request(key_id=sks[i], ciphertext=ds[i])
         decryptions.append(dec)
     bulk = post_operations(decryptions)
     results = []
     for b in bulk:
       assert b.operation == 'Decrypt'
       res = parse_decrypt_response_payload(b.to_dict())
-      results.append(res.decode("utf-8"))
+      results.append(res)
     return pandas.Series(results)
 
 

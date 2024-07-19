@@ -19,3 +19,12 @@ references:
       object_type: EXTERNAL ACCESS INTEGRATION
       register_callback: core.register_single_callback
       configuration_callback: core.get_configuration
+  - consumer_schema:
+      label: "Consumer TABLE"
+      description: "A TABLE in the consumer account that exists outside the app package"
+      privileges:
+        - INSERT
+        - SELECT
+      object_type: TABLE
+      multi_valued: false
+      register_callback: core.register_single_callback
