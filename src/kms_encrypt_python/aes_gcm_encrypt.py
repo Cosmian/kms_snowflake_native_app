@@ -7,12 +7,12 @@ from jsonpath_ng import ext
 from kms_encrypt_python.kmip_post import kmip_post
 
 # This JSON was generated using the following CLI command:
-
-# RUST_LOG="cosmian_kms_client::kms_rest_client=debug" \
-# ckms rsa encrypt -e ckm-rsa-aes-key-wrap -k e4d41132-8363-4e8a-9758-bdea38e87f6d cleartext.txt -o ciphertext.enc
 #
+# RUST_LOG="cosmian_kms_client::kms_rest_client=debug" \
+# ckms rsa encrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c cleartext.txt -o ciphertext.enc
+
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-RSA_ENCRYPT = """
+AES_ENCRYPT = """
 {
   "tag": "Encrypt",
   "type": "Structure",
@@ -23,30 +23,9 @@ RSA_ENCRYPT = """
       "value": "e4d41132-8363-4e8a-9758-bdea38e87f6d"
     },
     {
-      "tag": "CryptographicParameters",
-      "type": "Structure",
-      "value": [
-        {
-          "tag": "PaddingMethod",
-          "type": "Enumeration",
-          "value": "OAEP"
-        },
-        {
-          "tag": "HashingAlgorithm",
-          "type": "Enumeration",
-          "value": "SHA256"
-        },
-        {
-          "tag": "CryptographicAlgorithm",
-          "type": "Enumeration",
-          "value": "AES"
-        }
-      ]
-    },
-    {
       "tag": "Data",
       "type": "ByteString",
-      "value": "2D2D2D0A7469746C653A20436F6E7472696275746F72730A2D2D2D0A0A2D2020204272756E6F2047726965646572205C3C3C6272756E6F2E6772696564657240636F736D69616E2E636F6D3E5C3E0A"
+      "value": "2D2D2D0A746974...36F6D3E5C3E0A"
     }
   ]
 }
@@ -58,20 +37,22 @@ DATA_PATH = ext.parse('$..value[?tag = "Data"]')
 
 # response
 CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
+NONCE_PATH = ext.parse('$..value[?tag = "IvCounterNonce"]')
+TAG_PATH = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
 
 
-def create_rsa_encrypt_request(key_id: str, data: bytes) -> dict:
+def create_aes_gcm_encrypt_request(key_id: str, data: bytes) -> dict:
     """
-    Create an RSA encrypt request
+    Create an AES GCM encrypt request
 
     Args:
-      key_id (str): RSA key ID
+      key_id (str): AES key ID
       data (bytes): data to encrypt
 
     Returns:
-      str: the RSA encrypt request
+      str: the AES encrypt request
     """
-    req = json.loads(RSA_ENCRYPT)
+    req = json.loads(AES_ENCRYPT)
 
     # set the key ID
     KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
@@ -84,24 +65,35 @@ def create_rsa_encrypt_request(key_id: str, data: bytes) -> dict:
 
 def parse_encrypt_response(response: requests.Response) -> bytes:
     """
-    Parse an RSA encrypt response
-
+    Parse an AES encrypt response 
     Args:
-      response (str): the RSA encrypt response
+        response: the AES GCM encrypt response
 
     Returns:
-      bytes: the encrypted data
+        bytes: the concatenated nonce, ciphertext and tag
+
     """
     return parse_encrypt_response_payload(response.json())
 
 
 def parse_encrypt_response_payload(payload: dict) -> bytes:
-    return bytes.fromhex(CIPHERTEXT_PATH.find(payload)[0].value['value'])
-
-
-def encrypt_with_rsa(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
     """
-    Encrypt cleartext with RSA
+    Parse an AES encrypt response JSON payload
+    Args:
+        response: the AES GCM encrypt response
+
+    Returns:
+        bytes: the concatenated nonce, ciphertext and tag
+
+    """
+    ciphertext = CIPHERTEXT_PATH.find(payload)[0].value['value']
+    nonce = NONCE_PATH.find(payload)[0].value['value']
+    tag = TAG_PATH.find(payload)[0].value['value']
+    return bytes.fromhex(nonce+ciphertext+tag)
+
+def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
+    """
+    Encrypt cleartext with AES GCM
 
     Args:
       key_id (str): RSA key ID
@@ -109,10 +101,11 @@ def encrypt_with_rsa(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian
       conf_path (str): KMS configuration file path
 
     Returns:
-      bytes: ciphertext
+      bytes: AES GCM encrypted data as the concatenation of the nonce, ciphertext and tag
     """
-    req = create_rsa_encrypt_request(key_id, cleartext)
+    req = create_aes_gcm_encrypt_request(key_id, cleartext)
     response = kmip_post(json.dumps(req), conf_path)
     ciphertext = parse_encrypt_response(response)
     return ciphertext
+
 

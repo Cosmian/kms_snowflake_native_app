@@ -56,7 +56,7 @@ KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
 DATA_PATH = ext.parse('$..value[?tag = "Data"]')
 
 # response
-CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
+CLEARTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
 
 
 def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
@@ -95,7 +95,7 @@ def parse_decrypt_response(response: requests.Response) -> bytes:
 
 
 def parse_decrypt_response_payload(payload: dict) -> bytes:
-    return bytes.fromhex(CIPHERTEXT_PATH.find(payload)[0].value['value'])
+    return bytes.fromhex(CLEARTEXT_PATH.find(payload)[0].value['value'])
 
 
 def decrypt_with_rsa(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:

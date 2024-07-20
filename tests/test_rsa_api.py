@@ -23,7 +23,7 @@ def _test_single():
 
     # Check if the decrypted message is the same as the original message
     assert cleartext == message
-    print("Single Message encrypted and decrypted successfully")
+    print("Single RSA Message encrypted and decrypted successfully")
 
 
 def _test_bulk():
@@ -56,7 +56,7 @@ def _test_bulk():
 
 
 def test_main():
-    print("Running this program will verify that the KMS can create a key, encrypt and decrypt a message.")
+    print("Running this program will verify that the KMS can create a RSA key, encrypt and decrypt a message.")
     print("It uses the configuration file in ~/.cosmian/kms.json")
     print()
     _test_single()
