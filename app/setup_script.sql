@@ -64,7 +64,6 @@ LANGUAGE SQL
 AS
 $$
 BEGIN
-
   CREATE FUNCTION IF NOT EXISTS core.kms_create_key_aes(user VARCHAR)
   RETURNS VARIANT
   LANGUAGE PYTHON
@@ -92,6 +91,15 @@ BEGIN
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
   HANDLER = 'cosmian_kms.encrypt_aes';
+
+  CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_aes_single(user VARCHAR, v VARCHAR)
+  RETURNS BINARY
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = 3.8
+  IMPORTS=('/module-api/cosmian_kms.py')
+  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  HANDLER = 'cosmian_kms.encrypt_aes_single';
 
 
   CREATE FUNCTION IF NOT EXISTS core.kms_create_keypair_rsa(user VARCHAR)
@@ -130,13 +138,15 @@ BEGIN
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
   HANDLER = 'cosmian_kms.identity';
 
-  GRANT USAGE ON FUNCTION core.kms_create_key_aes(VARCHAR) TO APPLICATION ROLE app_public;
+
   GRANT USAGE ON FUNCTION core.kms_encrypt_aes(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_encrypt_aes_single(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.kms_decrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.kms_create_keypair_rsa(VARCHAR) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.kms_encrypt_rsa(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.kms_decrypt_rsa(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.identity(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+   GRANT USAGE ON FUNCTION core.kms_create_key_aes(VARCHAR) TO APPLICATION ROLE app_public;
 
   RETURN 'SUCCESS';
 END;

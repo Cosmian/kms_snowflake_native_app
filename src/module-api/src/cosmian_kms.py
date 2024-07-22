@@ -18,15 +18,20 @@ def encrypt_aes(data):
     ds = data[1]
 
     for i in data:
-        enc = create_aes_gcm_encrypt_request(key_id=pks[i], data=ds[i].encode('utf-8'))
+        enc = create_aes_gcm_encrypt_request(key_id=pks[0], data=ds[i].encode('utf-8'))
         encryptions.append(enc)
+
     bulk = post_operations(encryptions, num_threads=5)
     results = []
+
     for b in bulk:
       assert b.operation == 'Encrypt'
       res = parse_encrypt_response_payload_aes(b.to_dict())
       results.append(res)
     return pandas.Series(results)
+
+def encrypt_aes_single(key,data):
+    return encrypt_with_aes_gcm(key_id=key, cleartext=data.encode('utf-8'))
 
 @vectorized(input=pandas.DataFrame)
 def encrypt_rsa(data):
@@ -39,8 +44,11 @@ def encrypt_rsa(data):
     # except AssertionError as e:
     #     raise AssertionError("length of the list is: "+ str(len(pks)))
     encryptions = [create_rsa_encrypt_request(key_id=pks[i], data=ds[i].encode("utf-8")) for i in range(0,len(ds))]
-    bulk = post_operations(encryptions, num_threads=10)
-    results = [parse_encrypt_response_payload_rsa(result.to_dict()) for result in bulk]
+    bulk = post_operations(encryptions, num_threads=5)
+    results = []
+    for result in bulk:
+         res = parse_encrypt_response_payload_rsa(result.to_dict())
+         results.append(res)
     return pandas.Series(results)
 
 @vectorized(input=pandas.DataFrame)
@@ -82,7 +90,7 @@ def decrypt_rsa(data):
         #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
         dec = create_rsa_decrypt_request(key_id=sks[i], ciphertext=ds[i])
         decryptions.append(dec)
-    bulk = post_operations(decryptions, num_threads=10)
+    bulk = post_operations(decryptions, num_threads=5)
     results = []
     for b in bulk:
       assert b.operation == 'Decrypt'
@@ -256,10 +264,6 @@ def encrypt_with_rsa(key_id: str, cleartext: bytes, conf: str = configuration) -
     response = kmip_post(json.dumps(req), conf)
     ciphertext = parse_encrypt_response_rsa(response)
     return ciphertext
-
-
-def bulk_encrypt_with_rsa(key_id: str, cleartext: List[bytes], conf: str = configuration) -> bytes:
-    pass
 
 
 # DECRYPT
@@ -1031,7 +1035,7 @@ def parse_bulk_responses(response: requests.Response) -> List[BulkResult]:
 
 
 # The threshold number of operations for multithreading
-MULTI_THREAD_THRESHOLD = 10
+MULTI_THREAD_THRESHOLD = 300
 # The default number of threads to use
 NUM_THREADS = 5
 
@@ -1056,18 +1060,24 @@ def post_operations(operations: List[dict], num_threads=NUM_THREADS, threshold=M
 
     # Split the operations into chunks
     k, m = divmod(len(operations), num_threads)
+    #chunks = [(i,operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]) for i in range(num_threads)]
     chunks = [operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_threads)]
 
     # Post the operations in parallel
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         results = list(executor.map(post_operations_chunk, chunks))
 
+    #results = sorted(results, key=lambda tup: tup[0])
+    #results = [map(lambda x: x[1],result) for result in results]
+
     # Flatten the list of results
     combined_results = [item for sublist in results for item in sublist]
     return combined_results
 
 
-def post_operations_chunk(chunk: List[dict], conf_path: str = configuration) -> List[BulkResult]:
+def post_operations_chunk(chunk: List[dict], #tuple[int,List[dict]],
+                           conf_path: str = configuration) -> List[BulkResult]:#List[tuple[int,BulkResult]]:
+    #(id,chunk) = chunk
     req = create_bulk_message(chunk)
     response = kmip_post(json.dumps(req), conf_path)
     results = parse_bulk_responses(response)
