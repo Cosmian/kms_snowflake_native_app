@@ -16,12 +16,14 @@ def encrypt_aes(data):
     encryptions = []
     pks = data[0]
     ds = data[1]
+    threads = data[2][0]
+    min_elem = data[3][0]
 
     for i in range(0,len(data)):
         enc = create_aes_gcm_encrypt_request(key_id=pks[i], data=ds[i].encode('utf-8'))
         encryptions.append(enc)
 
-    bulk = post_operations(encryptions, num_threads=5)
+    bulk = post_operations(encryptions, num_threads=threads, threshold=min_elem)
     results = []
 
     for b in bulk:
@@ -53,6 +55,19 @@ def encrypt_rsa(data):
 
 @vectorized(input=pandas.DataFrame)
 def identity(data):
+    decryptions = []
+    sks = data[0]
+    ds = data[1]
+    threads = 10
+    min_elem = 1000
+
+    res = []
+
+    with requests.Session() as session:
+      for i in range(0,100000):
+        x = session.get('https://snowflake-kms.cosmian.dev/version')
+      res.append(x)
+
     return data[1]
 
 @vectorized(input=pandas.DataFrame)
@@ -60,11 +75,13 @@ def decrypt_aes(data):
     decryptions = []
     sks = data[0]
     ds = data[1]
+    threads = data[2][0]
+    min_elem = data[3][0]
 
     for i in range(0,len(data)):
         enc = create_aes_gcm_decrypt_request(key_id=sks[i], ciphertext=ds[i])
         decryptions.append(enc)
-    bulk = post_operations(decryptions, num_threads=5)
+    bulk = post_operations(decryptions,num_threads=threads, threshold=min_elem)
     results = []
     for b in bulk:
       assert b.operation == 'Decrypt'
