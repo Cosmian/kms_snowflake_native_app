@@ -17,8 +17,8 @@ def encrypt_aes(data):
     pks = data[0]
     ds = data[1]
 
-    for i in data:
-        enc = create_aes_gcm_encrypt_request(key_id=pks[0], data=ds[i].encode('utf-8'))
+    for i in range(0,len(data)):
+        enc = create_aes_gcm_encrypt_request(key_id=pks[i], data=ds[i].encode('utf-8'))
         encryptions.append(enc)
 
     bulk = post_operations(encryptions, num_threads=5)
@@ -61,8 +61,8 @@ def decrypt_aes(data):
     sks = data[0]
     ds = data[1]
 
-    for i in data:
-        enc = create_aes_gcm_decrypt_request(key_id=sks[i], data=ds[i])
+    for i in range(0,len(data)):
+        enc = create_aes_gcm_decrypt_request(key_id=sks[i], ciphertext=ds[i])
         decryptions.append(enc)
     bulk = post_operations(decryptions, num_threads=5)
     results = []
