@@ -64,33 +64,62 @@ LANGUAGE SQL
 AS
 $$
 BEGIN
-  CREATE FUNCTION IF NOT EXISTS core.kms_encrypt(user VARCHAR, v VARCHAR)
-  RETURNS BINARY
-  LANGUAGE PYTHON
-  RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
-  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
-  HANDLER = 'cosmian_kms.encrypt';
 
-
-  CREATE FUNCTION IF NOT EXISTS core.kms_create_keypair(user VARCHAR)
+  CREATE FUNCTION IF NOT EXISTS core.kms_create_key_aes(user VARCHAR)
   RETURNS VARIANT
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
   IMPORTS=('/module-api/cosmian_kms.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
-  HANDLER = 'cosmian_kms.create_keypair';
+  HANDLER = 'cosmian_kms.create_key_aes';
 
-  CREATE FUNCTION IF NOT EXISTS core.kms_decrypt(user VARCHAR, v BINARY)
+  CREATE FUNCTION IF NOT EXISTS core.kms_decrypt_aes(user VARCHAR, v BINARY)
   RETURNS BINARY
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
   IMPORTS=('/module-api/cosmian_kms.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
-  HANDLER = 'cosmian_kms.decrypt';
+  HANDLER = 'cosmian_kms.decrypt_aes';
+
+
+  CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_aes(user VARCHAR, v VARCHAR)
+  RETURNS BINARY
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = 3.8
+  IMPORTS=('/module-api/cosmian_kms.py')
+  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  HANDLER = 'cosmian_kms.encrypt_aes';
+
+
+  CREATE FUNCTION IF NOT EXISTS core.kms_create_keypair_rsa(user VARCHAR)
+  RETURNS VARIANT
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = 3.8
+  IMPORTS=('/module-api/cosmian_kms.py')
+  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  HANDLER = 'cosmian_kms.create_keypair_rsa';
+
+  CREATE FUNCTION IF NOT EXISTS core.kms_decrypt_rsa(user VARCHAR, v BINARY)
+  RETURNS BINARY
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = 3.8
+  IMPORTS=('/module-api/cosmian_kms.py')
+  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
+  HANDLER = 'cosmian_kms.decrypt_rsa';
+
+  CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_rsa(user VARCHAR, v VARCHAR)
+  RETURNS BINARY
+  LANGUAGE PYTHON
+  RUNTIME_VERSION = 3.8
+  IMPORTS=('/module-api/cosmian_kms.py')
+  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
+  HANDLER = 'cosmian_kms.encrypt_rsa';
 
   CREATE FUNCTION IF NOT EXISTS core.identity(user VARCHAR, v VARCHAR)
   RETURNS VARIANT
@@ -101,9 +130,12 @@ BEGIN
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
   HANDLER = 'cosmian_kms.identity';
 
-  GRANT USAGE ON FUNCTION core.kms_create_keypair(VARCHAR) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.kms_encrypt(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.kms_decrypt(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_create_key_aes(VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_encrypt_aes(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_decrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_create_keypair_rsa(VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_encrypt_rsa(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  GRANT USAGE ON FUNCTION core.kms_decrypt_rsa(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.identity(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
 
   RETURN 'SUCCESS';

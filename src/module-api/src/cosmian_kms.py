@@ -8,31 +8,39 @@ import pandas
 import _snowflake
 from _snowflake import vectorized
 from operator import itemgetter
+from concurrent.futures import ThreadPoolExecutor
+
 
 @vectorized(input=pandas.DataFrame)
-def encrypt(data):
+def encrypt_aes(data):
+    encryptions = []
+    pks = data[0]
+    ds = data[1]
+
+    for i in data:
+        enc = create_aes_gcm_encrypt_request(key_id=pks[i], data=ds[i].encode('utf-8'))
+        encryptions.append(enc)
+    bulk = post_operations(encryptions, num_threads=5)
+    results = []
+    for b in bulk:
+      assert b.operation == 'Encrypt'
+      res = parse_encrypt_response_payload_aes(b.to_dict())
+      results.append(res)
+    return pandas.Series(results)
+
+@vectorized(input=pandas.DataFrame)
+def encrypt_rsa(data):
     #res = encrypt_with_rsa(key_id=data[0], cleartext=data[1].encode("utf-8"))
     #return res.hex()
-    encryptions = []
     pks = data[0]
     ds = data[1]
     # try:
     #   assert len(pks) == 1000
     # except AssertionError as e:
     #     raise AssertionError("length of the list is: "+ str(len(pks)))
-    for i in range(0,len(ds)):
-        # try:
-        #   assert pk == d
-        # except AssertionError as e:
-        #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
-        enc = create_rsa_encrypt_request(key_id=pks[i], data=ds[i].encode("utf-8"))
-        encryptions.append(enc)
-    bulk = post_operations(encryptions)
-    results = []
-    for b in bulk:
-      assert b.operation == 'Encrypt'
-      res = parse_encrypt_response_payload(b.to_dict())
-      results.append(res)
+    encryptions = [create_rsa_encrypt_request(key_id=pks[i], data=ds[i].encode("utf-8")) for i in range(0,len(ds))]
+    bulk = post_operations(encryptions, num_threads=10)
+    results = [parse_encrypt_response_payload_rsa(result.to_dict()) for result in bulk]
     return pandas.Series(results)
 
 @vectorized(input=pandas.DataFrame)
@@ -40,7 +48,24 @@ def identity(data):
     return data[1]
 
 @vectorized(input=pandas.DataFrame)
-def decrypt(data):
+def decrypt_aes(data):
+    decryptions = []
+    sks = data[0]
+    ds = data[1]
+
+    for i in data:
+        enc = create_aes_gcm_decrypt_request(key_id=sks[i], data=ds[i])
+        decryptions.append(enc)
+    bulk = post_operations(decryptions, num_threads=5)
+    results = []
+    for b in bulk:
+      assert b.operation == 'Decrypt'
+      res = parse_decrypt_response_payload_aes(b.to_dict())
+      results.append(res)
+    return pandas.Series(results)
+
+@vectorized(input=pandas.DataFrame)
+def decrypt_rsa(data):
     #res = decrypt_with_rsa(key_id=user_key, ciphertext=bytes.fromhex(data))
     #return res.decode("utf-8")
     decryptions = []
@@ -57,19 +82,23 @@ def decrypt(data):
         #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
         dec = create_rsa_decrypt_request(key_id=sks[i], ciphertext=ds[i])
         decryptions.append(dec)
-    bulk = post_operations(decryptions)
+    bulk = post_operations(decryptions, num_threads=10)
     results = []
     for b in bulk:
       assert b.operation == 'Decrypt'
-      res = parse_decrypt_response_payload(b.to_dict())
+      res = parse_decrypt_response_payload_rsa(b.to_dict())
       results.append(res)
     return pandas.Series(results)
 
 
 
-def create_keypair(user):
+def create_keypair_rsa(user):
     keys = create_rsa_key_pair(size=2048, tags=["tag1", "tag2"])
     return (keys.pk, keys.sk)
+
+def create_key_aes(user):
+    key = create_aes_key(size=256, tags=["tag1", "tag2"])
+    return key
 
 
 configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
@@ -115,7 +144,7 @@ def kmip_post(json_str: str, conf: str = configuration) -> requests.Response:
 
     return requests.post(kms_server_url, headers=headers, data=json_str)
 
-# ENCRYPT
+# ENCRYPT RSA
 
 # This JSON was generated using the following CLI command:
 
@@ -165,11 +194,11 @@ RSA_ENCRYPT = """
 """
 
 # request
-KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
-DATA_PATH = ext.parse('$..value[?tag = "Data"]')
+KEY_ID_OR_TAGS_PATH_RSA = ext.parse('$..value[?tag = "UniqueIdentifier"]')
+DATA_PATH_RSA = ext.parse('$..value[?tag = "Data"]')
 
 # response
-CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
+CIPHERTEXT_PATH_RSA = ext.parse('$..value[?tag = "Data"]')
 
 
 def create_rsa_encrypt_request(key_id: str, data: bytes) -> dict:
@@ -186,15 +215,15 @@ def create_rsa_encrypt_request(key_id: str, data: bytes) -> dict:
     req = json.loads(RSA_ENCRYPT)
 
     # set the key ID
-    KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
+    KEY_ID_OR_TAGS_PATH_RSA.find(req)[0].value['value'] = key_id
 
     # set the data
-    DATA_PATH.find(req)[0].value['value'] = data.hex().upper()
+    DATA_PATH_RSA.find(req)[0].value['value'] = data.hex().upper()
 
     return req
 
 
-def parse_encrypt_response(response: requests.Response) -> bytes:
+def parse_encrypt_response_rsa(response: requests.Response) -> bytes:
     """
     Parse an RSA encrypt response
 
@@ -204,11 +233,11 @@ def parse_encrypt_response(response: requests.Response) -> bytes:
     Returns:
       bytes: the encrypted data
     """
-    return parse_encrypt_response_payload(response.json())
+    return parse_encrypt_response_payload_rsa(response.json())
 
 
-def parse_encrypt_response_payload(payload: dict) -> bytes:
-    return bytes.fromhex(CIPHERTEXT_PATH.find(payload)[0].value['value'])
+def parse_encrypt_response_payload_rsa(payload: dict) -> bytes:
+    return bytes.fromhex(CIPHERTEXT_PATH_RSA.find(payload)[0].value['value'])
 
 
 def encrypt_with_rsa(key_id: str, cleartext: bytes, conf: str = configuration) -> bytes:
@@ -225,7 +254,7 @@ def encrypt_with_rsa(key_id: str, cleartext: bytes, conf: str = configuration) -
     """
     req = create_rsa_encrypt_request(key_id, cleartext)
     response = kmip_post(json.dumps(req), conf)
-    ciphertext = parse_encrypt_response(response)
+    ciphertext = parse_encrypt_response_rsa(response)
     return ciphertext
 
 
@@ -283,11 +312,11 @@ RSA_DECRYPT = """
 """
 
 # request
-KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
-DATA_PATH = ext.parse('$..value[?tag = "Data"]')
+KEY_ID_OR_TAGS_PATH_RSA = ext.parse('$..value[?tag = "UniqueIdentifier"]')
+DATA_PATH_RSA = ext.parse('$..value[?tag = "Data"]')
 
 # response
-CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
+CIPHERTEXT_PATH_RSA = ext.parse('$..value[?tag = "Data"]')
 
 
 def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
@@ -304,15 +333,15 @@ def create_rsa_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
     req = json.loads(RSA_DECRYPT)
 
     # set the key ID
-    KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
+    KEY_ID_OR_TAGS_PATH_RSA.find(req)[0].value['value'] = key_id
 
     # set the ciphertext
-    DATA_PATH.find(req)[0].value['value'] = ciphertext.hex().upper()
+    DATA_PATH_RSA.find(req)[0].value['value'] = ciphertext.hex().upper()
 
     return req
 
 
-def parse_decrypt_response(response: requests.Response) -> bytes:
+def parse_decrypt_response_rsa(response: requests.Response) -> bytes:
     """
     Parse an RSA decrypt response
 
@@ -322,11 +351,11 @@ def parse_decrypt_response(response: requests.Response) -> bytes:
     Returns:
       bytes: the cleartext data
     """
-    return parse_decrypt_response_payload(response.json())
+    return parse_decrypt_response_payload_rsa(response.json())
 
 
-def parse_decrypt_response_payload(payload: dict) -> bytes:
-    return bytes.fromhex(CIPHERTEXT_PATH.find(payload)[0].value['value'])
+def parse_decrypt_response_payload_rsa(payload: dict) -> bytes:
+    return bytes.fromhex(CIPHERTEXT_PATH_RSA.find(payload)[0].value['value'])
 
 
 def decrypt_with_rsa(key_id: str, ciphertext: bytes, conf: str = configuration) -> bytes:
@@ -343,7 +372,7 @@ def decrypt_with_rsa(key_id: str, ciphertext: bytes, conf: str = configuration) 
     """
     req = create_rsa_decrypt_request(key_id, ciphertext)
     response = kmip_post(json.dumps(req), conf)
-    cleartext = parse_decrypt_response(response)
+    cleartext = parse_decrypt_response_rsa(response)
     return cleartext
 
 
@@ -489,11 +518,11 @@ CREATE_RSA_KEYPAIR = json.loads("""
 """)
 
 # request
-KEY_SIZE_PATH = ext.parse('$..value[?tag = "CryptographicLength"]')
-TAGS_PATH = ext.parse('$..value[?tag = "VendorAttributes"]')
+KEY_SIZE_PATH_RSA = ext.parse('$..value[?tag = "CryptographicLength"]')
+TAGS_PATH_RSA = ext.parse('$..value[?tag = "VendorAttributes"]')
 # response
-PRIVATE_KEY_PATH = ext.parse('$..value[?tag = "PrivateKeyUniqueIdentifier"]')
-PUBLIC_KEY_PATH = ext.parse('$..value[?tag = "PublicKeyUniqueIdentifier"]')
+PRIVATE_KEY_PATH_RSA = ext.parse('$..value[?tag = "PrivateKeyUniqueIdentifier"]')
+PUBLIC_KEY_PATH_RSA = ext.parse('$..value[?tag = "PublicKeyUniqueIdentifier"]')
 
 
 def create_keypair_request(key_size: int = 2048, tags: list = None) -> dict:
@@ -501,7 +530,7 @@ def create_keypair_request(key_size: int = 2048, tags: list = None) -> dict:
 
     # Set the  key size path
     if key_size != 2048:
-        ks_path = KEY_SIZE_PATH.find(req)
+        ks_path = KEY_SIZE_PATH_RSA.find(req)
         ks_path[0].value['value'] = key_size
 
     # Set the tags
@@ -511,7 +540,7 @@ def create_keypair_request(key_size: int = 2048, tags: list = None) -> dict:
         # Convert JSON string to hex bytes
         hex_str = json_str.encode('utf-8').hex().upper()
         # Set the tags path
-        tags_path = TAGS_PATH.find(req)
+        tags_path = TAGS_PATH_RSA.find(req)
         tags_path[0].value['value'][0]['value'][2]['value'] = hex_str
     else:
         # remove the VendorAttributes path
@@ -520,14 +549,14 @@ def create_keypair_request(key_size: int = 2048, tags: list = None) -> dict:
     return req
 
 
-def parse_keypair_response(response: Response) -> Keypair:
+def parse_keypair_response_rsa(response: Response) -> Keypair:
     response_json = response.json()
-    return parse_keypair_response_payload(response_json)
+    return parse_keypair_response_payload_rsa(response_json)
 
 
-def parse_keypair_response_payload(payload: dict) -> Keypair:
-    private_key = PRIVATE_KEY_PATH.find(payload)[0].value['value']
-    public_key = PUBLIC_KEY_PATH.find(payload)[0].value['value']
+def parse_keypair_response_payload_rsa(payload: dict) -> Keypair:
+    private_key = PRIVATE_KEY_PATH_RSA.find(payload)[0].value['value']
+    public_key = PUBLIC_KEY_PATH_RSA.find(payload)[0].value['value']
     return Keypair(sk=private_key, pk=public_key)
 
 
@@ -539,9 +568,348 @@ def create_rsa_key_pair(size: int = 2048, tags: List[str] = None, conf: str = co
     """
     req = create_keypair_request(size, tags)
     response = kmip_post(json.dumps(req), conf)
-    keypair = parse_keypair_response(response)
+    keypair = parse_keypair_response_rsa(response)
     return keypair
 
+
+
+
+# AES DECRYPT
+
+AES_GCM_DECRYPT = """
+{
+  "tag": "Decrypt",
+  "type": "Structure",
+  "value": [
+    {
+      "tag": "UniqueIdentifier",
+      "type": "TextString",
+      "value": "25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c"
+    },
+    {
+      "tag": "Data",
+      "type": "ByteString",
+      "value": "7292EFE...3913"
+    },
+    {
+      "tag": "IvCounterNonce",
+      "type": "ByteString",
+      "value": "4A5A36F173C600602446AAAB"
+    },
+    {
+      "tag": "AuthenticatedEncryptionTag",
+      "type": "ByteString",
+      "value": "391B60222172A025CEA0007479B432EE"
+    }
+  ]
+}
+"""
+
+# request
+KEY_ID_OR_TAGS_PATH_AES = ext.parse('$..value[?tag = "UniqueIdentifier"]')
+DATA_PATH_AES = ext.parse('$..value[?tag = "Data"]')
+NONCE_PATH_AES = ext.parse('$..value[?tag = "IvCounterNonce"]')
+TAG_PATH_AES = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
+
+# response
+CLEARTEXT_PATH_AES = ext.parse('$..value[?tag = "Data"]')
+
+
+def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
+    """
+    Create an AES GCM decrypt request
+
+    Args:
+      key_id (str): AES key ID
+      ciphertext (bytes): ciphertext to decrypt
+
+    Returns:
+      str: the RSA encrypt request
+    """
+    req = json.loads(AES_GCM_DECRYPT)
+    hex_string = ciphertext.hex().upper()
+
+    # set the key ID
+    KEY_ID_OR_TAGS_PATH_AES.find(req)[0].value['value'] = key_id
+
+    # set the nonce
+    NONCE_PATH_AES.find(req)[0].value['value'] = hex_string[:24]
+    # set the data
+    DATA_PATH_AES.find(req)[0].value['value'] = hex_string[24:-32]
+    # set the tag
+    TAG_PATH_AES.find(req)[0].value['value'] = hex_string[-32:]
+
+    return req
+
+
+def parse_decrypt_response_aes(response: requests.Response) -> bytes:
+    """
+    Parse an AES GCM decrypt response
+
+    Args:
+      response (str): the AES GCM decrypt response
+
+    Returns:
+      bytes: the cleartext data
+    """
+    return parse_decrypt_response_payload_aes(response.json())
+
+
+def parse_decrypt_response_payload_aes(payload: dict) -> bytes:
+    """
+    Parse an AES GCM decrypt response JSON
+
+    Args:
+      payload (dict): the AES GCM decrypt JSON response
+
+    Returns:
+      bytes: the cleartext data
+    """
+    return bytes.fromhex(CLEARTEXT_PATH_AES.find(payload)[0].value['value'])
+
+def decrypt_with_aes_gcm(key_id: str, ciphertext: bytes, conf_path: str = configuration) -> bytes:
+    """
+    Decrypt ciphertext with AES GCM
+
+    Args:
+      key_id (str): AES key ID
+      ciphertext (bytes): ciphertext to decrypt
+      conf_path (str): KMS configuration file path
+
+    Returns:
+      bytes: cleartext
+    """
+    req = create_aes_gcm_decrypt_request(key_id, ciphertext)
+    response = kmip_post(json.dumps(req), conf_path)
+    cleartext = parse_decrypt_response_aes(response)
+    return cleartext
+
+
+# AES ENCRYPT
+
+AES_ENCRYPT = """
+{
+  "tag": "Encrypt",
+  "type": "Structure",
+  "value": [
+    {
+      "tag": "UniqueIdentifier",
+      "type": "TextString",
+      "value": "e4d41132-8363-4e8a-9758-bdea38e87f6d"
+    },
+    {
+      "tag": "Data",
+      "type": "ByteString",
+      "value": "2D2D2D0A746974...36F6D3E5C3E0A"
+    }
+  ]
+}
+"""
+
+# request
+KEY_ID_OR_TAGS_PATH_AES = ext.parse('$..value[?tag = "UniqueIdentifier"]')
+DATA_PATH_AES = ext.parse('$..value[?tag = "Data"]')
+
+# response
+CIPHERTEXT_PATH_AES = ext.parse('$..value[?tag = "Data"]')
+NONCE_PATH_AES = ext.parse('$..value[?tag = "IvCounterNonce"]')
+TAG_PATH_AES = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
+
+
+def create_aes_gcm_encrypt_request(key_id: str, data: bytes) -> dict:
+    """
+    Create an AES GCM encrypt request
+
+    Args:
+      key_id (str): AES key ID
+      data (bytes): data to encrypt
+
+    Returns:
+      str: the AES encrypt request
+    """
+    req = json.loads(AES_ENCRYPT)
+
+    # set the key ID
+    KEY_ID_OR_TAGS_PATH_AES.find(req)[0].value['value'] = key_id
+
+    # set the data
+    DATA_PATH_AES.find(req)[0].value['value'] = data.hex().upper()
+
+    return req
+
+
+def parse_encrypt_response_aes(response: requests.Response) -> bytes:
+    """
+    Parse an AES encrypt response
+    Args:
+        response: the AES GCM encrypt response
+
+    Returns:
+        bytes: the concatenated nonce, ciphertext and tag
+
+    """
+    return parse_encrypt_response_payload_aes(response.json())
+
+
+def parse_encrypt_response_payload_aes(payload: dict) -> bytes:
+    """
+    Parse an AES encrypt response JSON payload
+    Args:
+        response: the AES GCM encrypt response
+
+    Returns:
+        bytes: the concatenated nonce, ciphertext and tag
+
+    """
+    ciphertext = CIPHERTEXT_PATH_AES.find(payload)[0].value['value']
+    nonce = NONCE_PATH_AES.find(payload)[0].value['value']
+    tag = TAG_PATH_AES.find(payload)[0].value['value']
+    return bytes.fromhex(nonce+ciphertext+tag)
+
+def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = configuration) -> bytes:
+    """
+    Encrypt cleartext with AES GCM
+
+    Args:
+      key_id (str): RSA key ID
+      cleartext (bytes): cleartext to encrypt
+      conf_path (str): KMS configuration file path
+
+    Returns:
+      bytes: AES GCM encrypted data as the concatenation of the nonce, ciphertext and tag
+    """
+    req = create_aes_gcm_encrypt_request(key_id, cleartext)
+    response = kmip_post(json.dumps(req), conf_path)
+    ciphertext = parse_encrypt_response_aes(response)
+    return ciphertext
+
+# AES KEYGEN
+
+CREATE_AES_KEY = json.loads("""
+{
+  "tag": "Create",
+  "type": "Structure",
+  "value": [
+    {
+      "tag": "ObjectType",
+      "type": "Enumeration",
+      "value": "SymmetricKey"
+    },
+    {
+      "tag": "Attributes",
+      "type": "Structure",
+      "value": [
+        {
+          "tag": "CryptographicAlgorithm",
+          "type": "Enumeration",
+          "value": "AES"
+        },
+        {
+          "tag": "CryptographicLength",
+          "type": "Integer",
+          "value": 256
+        },
+        {
+          "tag": "CryptographicUsageMask",
+          "type": "Integer",
+          "value": 2108
+        },
+        {
+          "tag": "KeyFormatType",
+          "type": "Enumeration",
+          "value": "TransparentSymmetricKey"
+        },
+        {
+          "tag": "ObjectType",
+          "type": "Enumeration",
+          "value": "SymmetricKey"
+        },
+        {
+          "tag": "VendorAttributes",
+          "type": "Structure",
+          "value": [
+            {
+              "tag": "VendorAttributes",
+              "type": "Structure",
+              "value": [
+                {
+                  "tag": "VendorIdentification",
+                  "type": "TextString",
+                  "value": "cosmian"
+                },
+                {
+                  "tag": "AttributeName",
+                  "type": "TextString",
+                  "value": "tag"
+                },
+                {
+                  "tag": "AttributeValue",
+                  "type": "ByteString",
+                  "value": "5B226165735F6B6579225D"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+""")
+
+# request
+KEY_SIZE_PATH_AES = ext.parse('$..value[?tag = "CryptographicLength"]')
+TAGS_PATH_AES = ext.parse('$..value[?tag = "VendorAttributes"]')
+# response
+RESPONSE_KEY_PATH_AES = ext.parse('$..value[?tag = "UniqueIdentifier"]')
+
+
+def create_aes_key_request(key_size: int = 2048, tags: list = None) -> dict:
+    req = CREATE_AES_KEY.copy()
+
+    # Set the  key size path
+    if key_size != 256:
+        ks_path = KEY_SIZE_PATH_AES.find(req)
+        ks_path[0].value['value'] = key_size
+
+    # Set the tags
+    if tags is not None:
+        # Convert list to JSON string
+        json_str = json.dumps(tags)
+        # Convert JSON string to hex bytes
+        hex_str = json_str.encode('utf-8').hex().upper()
+        # Set the tags path
+        tags_path = TAGS_PATH_AES.find(req)
+        tags_path[0].value['value'][0]['value'][2]['value'] = hex_str
+    else:
+        # remove the VendorAttributes path
+        TAGS_PATH.filter(lambda d: True, req)
+
+    return req
+
+
+def parse_aes_key_response_aes(response: Response) -> str:
+    response_json = response.json()
+    return parse_aes_key_payload_aes(response_json)
+
+
+def parse_aes_key_payload_aes(payload: dict) -> str:
+    return RESPONSE_KEY_PATH_AES.find(payload)[0].value['value']
+
+
+def create_aes_key(size: int = 256, tags: List[str] = None, conf_path: str = configuration) -> str:
+    """Create an AES key
+
+    Returns:
+        an hex string of the AES key
+    """
+    req = create_aes_key_request(size, tags)
+    response = kmip_post(json.dumps(req), conf_path)
+    keypair = parse_aes_key_response_aes(response)
+    return keypair
+
+
+# PARALLEL BULK
 
 class BulkResult:
     operation: str
@@ -602,7 +970,6 @@ BULK_MESSAGE = """
             "tag": "Items",
             "type": "Structure",
             "value": [
-
             ]
         }
     ]
@@ -663,17 +1030,48 @@ def parse_bulk_responses(response: requests.Response) -> List[BulkResult]:
     return res
 
 
-def post_operations(operations: List[dict], conf_path: str = configuration) -> List[BulkResult]:
-    """Post multiple operations
+# The threshold number of operations for multithreading
+MULTI_THREAD_THRESHOLD = 10
+# The default number of threads to use
+NUM_THREADS = 5
+
+
+def post_operations(operations: List[dict], num_threads=NUM_THREADS, threshold=MULTI_THREAD_THRESHOLD,
+                    conf_path: str = configuration) -> List[BulkResult]:
+    """
+    Post a list of operations to the KMS
+    Args:
+        operations: the operations to post
+        num_threads: the number of threads to use. Defaults to NUM_THREADS
+        threshold: the threshold number of operations for multithreading. Defaults to MULTI_THREAD_THRESHOLD
+        conf_path: the path to the configuration file. Defaults to configuration
 
     Returns:
-        List[dict]: list of Bulk Results
+        List[BulkResult]: the results of the operations
     """
-    req = create_bulk_message(operations)
+    num_operations = len(operations)
+    # do not multithread for less than threshold operations
+    if num_operations < threshold:
+        return post_operations_chunk(operations, conf_path)
+
+    # Split the operations into chunks
+    k, m = divmod(len(operations), num_threads)
+    chunks = [operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_threads)]
+
+    # Post the operations in parallel
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        results = list(executor.map(post_operations_chunk, chunks))
+
+    # Flatten the list of results
+    combined_results = [item for sublist in results for item in sublist]
+    return combined_results
+
+
+def post_operations_chunk(chunk: List[dict], conf_path: str = configuration) -> List[BulkResult]:
+    req = create_bulk_message(chunk)
     response = kmip_post(json.dumps(req), conf_path)
     results = parse_bulk_responses(response)
     return results
 
-
 if __name__ == "__main__":
-    create_keypair('azer')
+    create_keypair_rsa('azer')
