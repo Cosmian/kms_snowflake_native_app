@@ -83,10 +83,6 @@ def decrypt_aes(key_id, data):
     )
     return pandas.Series(results)
 
-def create_keypair_rsa(user):
-    keys = create_rsa_key_pair(size=2048, tags=["tag1", "tag2"])
-    return (keys.pk, keys.sk)
-
 def create_key_aes(user):
     key = create_aes_key(size=256, tags=["tag1", "tag2"])
     return key
