@@ -1,0 +1,37 @@
+### Encryption Python
+
+# RUN 1, 1 Execution thread
+
+time for creating 50000 requests: 1612.312 milliseconds
+time taken to encrypt 50000 messages: 155775.923 milliseconds
+time taken to postprocess 50000 messages: 3668.039 milliseconds
+time taken to encrypt one message: 84.044 milliseconds
+
+# RUN 2, 5 Execution threads
+
+time for creating 50000 requests: 1622.605 milliseconds
+time taken to encrypt 50000 messages: 49464.742 milliseconds
+time taken to postprocess 50000 messages: 3803.42 milliseconds
+time taken to encrypt one message: 91.726 milliseconds
+
+# RUN 3, 10 Execution threads
+
+time for creating 50000 requests: 1640.135 milliseconds
+time taken to encrypt 50000 messages: 40258.77 milliseconds
+time taken to postprocess 50000 messages: 3632.327 milliseconds
+time taken to encrypt one message: 88.006 milliseconds
+
+### Encryption KMS
+## 50k
+
+# RUN 1, 1 thread
+encryption + insertion: 37s
+
+# RUN 2, 5 threads
+encryption + insertion: 43s
+
+# RUN 3, 10 threads
+encryption + insertion: 41s
+
+# 1 unitary request
+3s
