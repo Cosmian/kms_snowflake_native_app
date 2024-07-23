@@ -1,6 +1,7 @@
 import json
 import os
 import requests
+from requests import grequests
 from requests import Response
 from jsonpath_ng import ext
 from typing import List
@@ -64,11 +65,11 @@ def identity(data):
     res = []
 
     with requests.Session() as session:
-      for i in range(0,100000):
+      for i in range(0,len(data[0])):
         x = session.get('https://snowflake-kms.cosmian.dev/version')
-      res.append(x)
+        res.append(i)
 
-    return data[1]
+    return pandas.Series(res)
 
 @vectorized(input=pandas.DataFrame)
 def decrypt_aes(data):

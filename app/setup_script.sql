@@ -130,7 +130,7 @@ BEGIN
   HANDLER = 'cosmian_kms.encrypt_rsa';
 
   CREATE FUNCTION IF NOT EXISTS core.identity(user VARCHAR, v BINARY)
-  RETURNS BINARY
+  RETURNS INT
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
   IMPORTS=('/module-api/cosmian_kms.py')
