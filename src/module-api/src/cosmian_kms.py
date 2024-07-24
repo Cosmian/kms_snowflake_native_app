@@ -127,7 +127,8 @@ def create_key_aes(user):
     return key
 
 
-configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
+#configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
+configuration = '{"kms_server_url": "https://20.86.128.166:9998"}'
 
 # POST
 

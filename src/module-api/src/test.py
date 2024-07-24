@@ -30,7 +30,7 @@ def encrypt_aes(key_id, num_messages):
     )
     results = []
     start_time = time.perf_counter()
-    bulk = post_operations(encryptions, num_threads=10, threshold=5000)
+    bulk = post_operations(encryptions, num_threads=1, threshold=5000)
     end_time = time.perf_counter()
     print(
         f"time taken to encrypt {num_messages} messages: {round((end_time - start_time) * 1000, 3)} milliseconds"
@@ -66,7 +66,7 @@ def decrypt_aes(key_id, data):
         f"time for creating {len(data)} decrypt requests: {round((end_time - start_time) * 1000, 3)} milliseconds"
     )
     start_time = time.perf_counter()
-    bulk = post_operations(decryptions,num_threads=10, threshold=5000)
+    bulk = post_operations(decryptions,num_threads=1, threshold=5000)
     end_time = time.perf_counter()
     print(
         f"time taken to decrypt {len(data)} messages: {round((end_time - start_time) * 1000, 3)} milliseconds"
@@ -128,6 +128,9 @@ def kmip_post(json_str: str, conf: str = configuration) -> requests.Response:
 
     if "kms_access_token" in conf:
         headers["Authorization"] = "Bearer " + conf["kms_access_token"]
+
+
+    print(f"size in bites of the message  {len(json_str.encode('utf-8'))}")
 
     return requests.post(kms_server_url, headers=headers, data=json_str)
 
@@ -1064,7 +1067,7 @@ def post_operations_chunk(chunk: List[dict], #tuple[int,List[dict]],
 
 if __name__ == "__main__":
     key_id = '1b484e76-b001-492a-a3ef-69c47cbef609'
-    encryptions = encrypt_aes(key_id, 100000)
+    encryptions = encrypt_aes(key_id, 50000)
     decryptions = decrypt_aes(key_id,encryptions)
     encryptions = encrypt_aes_single(key_id,"ciao adam")
 
