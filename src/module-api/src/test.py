@@ -30,10 +30,10 @@ def encrypt_aes(key_id, num_messages):
     )
     results = []
     start_time = time.perf_counter()
-    bulk = post_operations(encryptions, num_threads=1, threshold=5000)
+    bulk = post_operations(encryptions, num_threads=1, threshold=500)
     end_time = time.perf_counter()
     print(
-        f"time taken to encrypt {num_messages} messages: {round((end_time - start_time) * 1000, 3)} milliseconds"
+        f"Average time to encrypt {num_messages} messages: {round((end_time - start_time) * 1000 / num_messages, 3)} milliseconds"
     )
     start_time = time.perf_counter()
     for b in bulk:
@@ -66,10 +66,10 @@ def decrypt_aes(key_id, data):
         f"time for creating {len(data)} decrypt requests: {round((end_time - start_time) * 1000, 3)} milliseconds"
     )
     start_time = time.perf_counter()
-    bulk = post_operations(decryptions,num_threads=1, threshold=5000)
+    bulk = post_operations(decryptions,num_threads=1, threshold=500)
     end_time = time.perf_counter()
     print(
-        f"time taken to decrypt {len(data)} messages: {round((end_time - start_time) * 1000, 3)} milliseconds"
+        f"Average time taken to decrypt {len(data)} messages: {round((end_time - start_time) * 1000 / len(data), 3)} milliseconds"
     )
     results = []
     start = time.perf_counter()
@@ -88,8 +88,8 @@ def create_key_aes(user):
     return key
 
 
-configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
-
+#configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
+configuration = '{"kms_server_url": "http://20.86.128.166:9998"}'
 # POST
 
 
@@ -100,6 +100,7 @@ def read_kms_configuration(conf: str = configuration):
     Returns:
       dict: KMS configuration
     """
+
     # Define the file path
     # file_path = os.path.expanduser(conf_path)
     # Open the file and load the JSON
@@ -1066,8 +1067,8 @@ def post_operations_chunk(chunk: List[dict], #tuple[int,List[dict]],
     return results
 
 if __name__ == "__main__":
-    key_id = '1b484e76-b001-492a-a3ef-69c47cbef609'
-    encryptions = encrypt_aes(key_id, 50000)
+    key_id = '0d319307-f766-4869-b90a-02096edb9431'
+    encryptions = encrypt_aes(key_id, 1000000)
     decryptions = decrypt_aes(key_id,encryptions)
     encryptions = encrypt_aes_single(key_id,"ciao adam")
 

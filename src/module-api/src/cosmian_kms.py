@@ -1,7 +1,6 @@
 import json
 import os
 import requests
-from requests import grequests
 from requests import Response
 from jsonpath_ng import ext
 from typing import List
@@ -127,8 +126,8 @@ def create_key_aes(user):
     return key
 
 
-#configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/"}'
-configuration = '{"kms_server_url": "https://20.86.128.166:9998"}'
+configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
+#configuration = '{"kms_server_url": "https://20.86.128.166"}'
 
 # POST
 
@@ -1103,4 +1102,5 @@ def post_operations_chunk(chunk: List[dict], #tuple[int,List[dict]],
     return results
 
 if __name__ == "__main__":
+    key_id = "0d319307-f766-4869-b90a-02096edb9431"
     create_keypair_rsa('azer')
