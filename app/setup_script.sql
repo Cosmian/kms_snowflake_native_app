@@ -44,7 +44,7 @@ BEGIN
           RETURN OBJECT_CONSTRUCT(
               'type', 'CONFIGURATION',
               'payload', OBJECT_CONSTRUCT(
-                  'host_ports', ARRAY_CONSTRUCT('snowflake-kms.cosmian.dev/indosuez:443'),
+                  'host_ports', ARRAY_CONSTRUCT('snowflake-kms.cosmian.dev:443'),
                   'allowed_secrets', 'NONE')
           )::STRING;
       ELSE
