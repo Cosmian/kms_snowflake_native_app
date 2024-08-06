@@ -16,9 +16,8 @@ from aes_gcm_encrypt import create_aes_gcm_encrypt_request, \
     parse_encrypt_response_payload
 from bulk import post_operations
 
-
-configuration = '~/module-api/kms.json'
-
+# configuration = 'kms.json'
+configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
 @vectorized(input=pandas.DataFrame)
 def encrypt_aes(data):
     encryptions = []
