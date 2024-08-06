@@ -5,5 +5,5 @@ native_app:
   artifacts:
     - src: app/*
       dest: ./
-    - src: src/module-api/src/cosmian_kms.py
-      dest: module-api/cosmian_kms.py
+    - src: src/module-api/src/*
+      dest: module-api/

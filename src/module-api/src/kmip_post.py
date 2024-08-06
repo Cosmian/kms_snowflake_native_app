@@ -3,7 +3,7 @@ import os
 import requests
 
 
-def read_kms_configuration(conf_path: str = "kms.json"):
+def read_kms_configuration(conf_path: str = "~/.cosmian/kms.json"):
     """
     Read  the KMS configuration
 
@@ -18,7 +18,7 @@ def read_kms_configuration(conf_path: str = "kms.json"):
     return data
 
 
-def kmip_post(json_str: str, conf_path: str = "~../../kms.json") -> requests.Response:
+def kmip_post(json_str: str, conf_path: str = "~/.cosmian/kms.json") -> requests.Response:
     """
     Post a KMIP request to a KMIP server
 

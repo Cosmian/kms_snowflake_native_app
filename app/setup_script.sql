@@ -68,7 +68,7 @@ BEGIN
   RETURNS VARIANT
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
+  IMPORTS=('/module-api/kms.json', '/module-api/cosmian_kms.py', '/module-api/aes_gcm_decrypt.py', '/module-api/aes_gcm_encrypt.py', '/module-api/bulk.py', '/module-api/kmip_post.py', '/module-api/create_aes_key.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
   HANDLER = 'cosmian_kms.create_key_aes';
@@ -77,7 +77,7 @@ BEGIN
   RETURNS BINARY
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
+  IMPORTS=('/module-api/kms.json', '/module-api/cosmian_kms.py', '/module-api/aes_gcm_decrypt.py', '/module-api/aes_gcm_encrypt.py', '/module-api/bulk.py', '/module-api/kmip_post.py', '/module-api/create_aes_key.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
   HANDLER = 'cosmian_kms.decrypt_aes';
@@ -87,65 +87,70 @@ BEGIN
   RETURNS BINARY
   LANGUAGE PYTHON
   RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
+  IMPORTS=('/module-api/kms.json', '/module-api/cosmian_kms.py', '/module-api/aes_gcm_decrypt.py', '/module-api/aes_gcm_encrypt.py', '/module-api/bulk.py', '/module-api/kmip_post.py', '/module-api/create_aes_key.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
   PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
   HANDLER = 'cosmian_kms.encrypt_aes';
 
-  CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_aes_single(user VARCHAR, v VARCHAR)
-  RETURNS BINARY
-  LANGUAGE PYTHON
-  RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
-  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
-  HANDLER = 'cosmian_kms.encrypt_aes_single';
+  -- CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_aes_single(user VARCHAR, v VARCHAR)
+  -- RETURNS BINARY
+  -- LANGUAGE PYTHON
+  -- RUNTIME_VERSION = 3.8
+  -- IMPORTS=('/module-api/cosmian_kms.py')
+  -- EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  -- PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  -- IMPORTS = ('@packages/kms_encrypt_python.zip' )
+  -- HANDLER = 'cosmian_kms.encrypt_aes_single';
 
 
-  CREATE FUNCTION IF NOT EXISTS core.kms_create_keypair_rsa(user VARCHAR)
-  RETURNS VARIANT
-  LANGUAGE PYTHON
-  RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
-  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
-  HANDLER = 'cosmian_kms.create_keypair_rsa';
+  -- CREATE FUNCTION IF NOT EXISTS core.kms_create_keypair_rsa(user VARCHAR)
+  -- RETURNS VARIANT
+  -- LANGUAGE PYTHON
+  -- RUNTIME_VERSION = 3.8
+  -- IMPORTS=('/module-api/cosmian_kms.py')
+  -- EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  -- PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  -- IMPORTS = ('@packages/kms_encrypt_python.zip' )
+  -- HANDLER = 'cosmian_kms.create_keypair_rsa';
 
-  CREATE FUNCTION IF NOT EXISTS core.kms_decrypt_rsa(user VARCHAR, v BINARY)
-  RETURNS BINARY
-  LANGUAGE PYTHON
-  RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
-  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
-  HANDLER = 'cosmian_kms.decrypt_rsa';
+  -- CREATE FUNCTION IF NOT EXISTS core.kms_decrypt_rsa(user VARCHAR, v BINARY)
+  -- RETURNS BINARY
+  -- LANGUAGE PYTHON
+  -- RUNTIME_VERSION = 3.8
+  -- IMPORTS=('/module-api/cosmian_kms.py')
+  -- EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  -- PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
+  -- IMPORTS = ('@packages/kms_encrypt_python.zip' )
+  -- HANDLER = 'cosmian_kms.decrypt_rsa';
 
-  CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_rsa(user VARCHAR, v VARCHAR)
-  RETURNS BINARY
-  LANGUAGE PYTHON
-  RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
-  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
-  HANDLER = 'cosmian_kms.encrypt_rsa';
+  -- CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_rsa(user VARCHAR, v VARCHAR)
+  -- RETURNS BINARY
+  -- LANGUAGE PYTHON
+  -- RUNTIME_VERSION = 3.8
+  -- IMPORTS=('/module-api/cosmian_kms.py')
+  -- EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  -- PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
+  -- IMPORTS = ('@packages/kms_encrypt_python.zip' )
+  -- HANDLER = 'cosmian_kms.encrypt_rsa';
 
-  CREATE FUNCTION IF NOT EXISTS core.identity(user VARCHAR, v BINARY)
-  RETURNS INT
-  LANGUAGE PYTHON
-  RUNTIME_VERSION = 3.8
-  IMPORTS=('/module-api/cosmian_kms.py')
-  EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
-  HANDLER = 'cosmian_kms.identity';
+  -- CREATE FUNCTION IF NOT EXISTS core.identity(user VARCHAR, v BINARY)
+  -- RETURNS INT
+  -- LANGUAGE PYTHON
+  -- RUNTIME_VERSION = 3.8
+  -- IMPORTS=('/module-api/cosmian_kms.py')
+  -- EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
+  -- PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
+  -- IMPORTS = ('@packages/kms_encrypt_python.zip' )
+  -- HANDLER = 'cosmian_kms.identity';
 
 
   GRANT USAGE ON FUNCTION core.kms_encrypt_aes(VARCHAR,VARCHAR,INT,INT) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.kms_encrypt_aes_single(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  -- GRANT USAGE ON FUNCTION core.kms_encrypt_aes_single(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
   GRANT USAGE ON FUNCTION core.kms_decrypt_aes(VARCHAR,BINARY,INT,INT) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.kms_create_keypair_rsa(VARCHAR) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.kms_encrypt_rsa(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.kms_decrypt_rsa(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
-  GRANT USAGE ON FUNCTION core.identity(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+  -- GRANT USAGE ON FUNCTION core.kms_create_keypair_rsa(VARCHAR) TO APPLICATION ROLE app_public;
+  -- GRANT USAGE ON FUNCTION core.kms_encrypt_rsa(VARCHAR,VARCHAR) TO APPLICATION ROLE app_public;
+  -- GRANT USAGE ON FUNCTION core.kms_decrypt_rsa(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+  -- GRANT USAGE ON FUNCTION core.identity(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
    GRANT USAGE ON FUNCTION core.kms_create_key_aes(VARCHAR) TO APPLICATION ROLE app_public;
 
   RETURN 'SUCCESS';

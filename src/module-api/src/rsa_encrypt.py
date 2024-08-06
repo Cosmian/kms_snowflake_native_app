@@ -116,6 +116,3 @@ def encrypt_with_rsa(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian
     ciphertext = parse_encrypt_response(response)
     return ciphertext
 
-
-def bulk_encrypt_with_rsa(key_id: str, cleartext: List[bytes], conf_path: str = "~/.cosmian/kms.json") -> bytes:
-    pass

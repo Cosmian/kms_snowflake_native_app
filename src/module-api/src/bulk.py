@@ -1,13 +1,9 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
-
 import requests
 from jsonpath_ng import ext
-
-from create_key_pair import create_rsa_key_pair
 from kmip_post import kmip_post
-from rsa_decrypt import create_rsa_decrypt_request, parse_decrypt_response_payload
-from rsa_encrypt import create_rsa_encrypt_request, parse_encrypt_response_payload
 
 
 class BulkResult:
@@ -69,7 +65,6 @@ BULK_MESSAGE = """
             "tag": "Items",
             "type": "Structure",
             "value": [
-
             ]
         }
     ]
@@ -130,16 +125,45 @@ def parse_bulk_responses(response: requests.Response) -> List[BulkResult]:
     return res
 
 
-def post_operations(operations: List[dict], conf_path: str = "~/.cosmian/kms.json") -> List[BulkResult]:
-    """Post multiple operations
+# The threshold number of operations for multithreading
+MULTI_THREAD_THRESHOLD = 100
+# The default number of threads to use
+NUM_THREADS = 5
+
+
+def post_operations(operations: List[dict], num_threads=NUM_THREADS, threshold=MULTI_THREAD_THRESHOLD,
+                    conf_path: str = "~/.cosmian/kms.json") -> List[BulkResult]:
+    """
+    Post a list of operations to the KMS
+    Args:
+        operations: the operations to post
+        num_threads: the number of threads to use. Defaults to NUM_THREADS
+        threshold: the threshold number of operations for multithreading. Defaults to MULTI_THREAD_THRESHOLD
+        conf_path: the path to the configuration file. Defaults to "~/.cosmian/kms.json"
 
     Returns:
-        List[dict]: list of Bulk Results
+        List[BulkResult]: the results of the operations
     """
-    req = create_bulk_message(operations)
+    num_operations = len(operations)
+    # do not multithread for less than threshold operations
+    if num_operations < threshold:
+        return post_operations_chunk(operations, conf_path)
+
+    # Split the operations into chunks
+    k, m = divmod(len(operations), num_threads)
+    chunks = [operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_threads)]
+
+    # Post the operations in parallel
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        results = list(executor.map(post_operations_chunk, chunks))
+
+    # Flatten the list of results
+    combined_results = [item for sublist in results for item in sublist]
+    return combined_results
+
+
+def post_operations_chunk(chunk: List[dict], conf_path: str = "~/.cosmian/kms.json") -> List[BulkResult]:
+    req = create_bulk_message(chunk)
     response = kmip_post(json.dumps(req), conf_path)
     results = parse_bulk_responses(response)
     return results
-
-
-
