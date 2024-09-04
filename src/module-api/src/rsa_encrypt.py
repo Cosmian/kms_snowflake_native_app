@@ -1,4 +1,4 @@
-import json
+import orjson
 from typing import List, Any
 
 import requests
@@ -71,7 +71,7 @@ def create_rsa_encrypt_request(key_id: str, data: bytes) -> dict:
     Returns:
       str: the RSA encrypt request
     """
-    req = json.loads(RSA_ENCRYPT)
+    req = orjson.loads(RSA_ENCRYPT)
 
     # set the key ID
     KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
@@ -112,7 +112,7 @@ def encrypt_with_rsa(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian
       bytes: ciphertext
     """
     req = create_rsa_encrypt_request(key_id, cleartext)
-    response = kmip_post(json.dumps(req), conf_path)
+    response = kmip_post(orjson.dumps(req), conf_path)
     ciphertext = parse_encrypt_response(response)
     return ciphertext
 

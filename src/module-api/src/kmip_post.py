@@ -2,7 +2,7 @@ import json
 import os
 import requests
 
-def read_kms_configuration(conf: str = "configuration"):
+def read_kms_configuration(conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'):
     """
     Read  the KMS configuration
 
@@ -17,14 +17,16 @@ def read_kms_configuration(conf: str = "configuration"):
     return data
 
 
-def kmip_post(json_str: str, conf: str = "configuration") -> requests.Response:
+def kmip_post(json_str: str, conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> requests.Response:
     """
     Post a KMIP request to a KMIP server
 
     Returns:
       dict: KMIP response
     """
+    print("--- reading the kms configuration {}", conf)
     conf = read_kms_configuration(conf)
+    print("--- configuration of the kms read")
 
     # if "kms_server_url" in conf:
     kms_server_url = conf["kms_server_url"] + "/kmip/2_1"
@@ -37,5 +39,8 @@ def kmip_post(json_str: str, conf: str = "configuration") -> requests.Response:
 
     if "kms_access_token" in conf:
         headers["Authorization"] = "Bearer " + conf["kms_access_token"]
-
-    return requests.post(kms_server_url, headers=headers, data=json_str)
+    print("--- end construction of the request")
+    print("--- posting")
+    res = requests.post(kms_server_url, headers=headers, data=json_str)
+    print("--- got result from post")
+    return res

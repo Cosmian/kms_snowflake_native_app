@@ -1,4 +1,4 @@
-import json
+import orjson
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 import requests
@@ -105,23 +105,24 @@ def create_bulk_message(operations: List[dict]) -> dict:
     """
     ops = []
     for operation in operations:
-        op = json.loads(BATCHED_OPERATION)
+        op = orjson.loads(BATCHED_OPERATION)
         op["value"][0]["value"] = operation['tag']
         op["value"][1]["value"] = operation["value"]
         ops.append(op)
 
-    bulk_message = json.loads(BULK_MESSAGE)
+    bulk_message = orjson.loads(BULK_MESSAGE)
     ITEMS_PATH.find(bulk_message)[0].value['value'] = ops
     return bulk_message
 
 
 def parse_bulk_responses(response: requests.Response) -> List[BulkResult]:
+    print("---- taking json from response")
     response_json = response.json()
-    res = []
-    for item in ITEMS_PATH.find(response_json)[0].value['value']:
-        operation_tag = RESPONSE_OPERATION.find(item)[0].value['value']
-        payload = RESPONSE_PAYLOAD_PATH.find(item)[0].value['value']
-        res.append(BulkResult(operation_tag, payload))
+    print("---- parsing the result")
+    res = [BulkResult(RESPONSE_OPERATION.find(item)[0].value['value'],
+                       RESPONSE_PAYLOAD_PATH.find(item)[0].value['value'])
+                            for item in ITEMS_PATH.find(response_json)[0].value['value']]
+    print("---- end parsing the result")
     return res
 
 
@@ -132,7 +133,7 @@ NUM_THREADS = 5
 
 
 def post_operations(operations: List[dict], num_threads=NUM_THREADS, threshold=MULTI_THREAD_THRESHOLD,
-                    conf_path: str = "~/.cosmian/kms.json") -> List[BulkResult]:
+                    conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> List[BulkResult]:
     """
     Post a list of operations to the KMS
     Args:
@@ -148,22 +149,30 @@ def post_operations(operations: List[dict], num_threads=NUM_THREADS, threshold=M
     # do not multithread for less than threshold operations
     if num_operations < threshold:
         return post_operations_chunk(operations, conf_path)
-
+    print("-  returning post operation chunks")
     # Split the operations into chunks
     k, m = divmod(len(operations), num_threads)
     chunks = [operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_threads)]
-
+    print("-  dividing the dataset")
     # Post the operations in parallel
+    print("-  instantiating threadpool executor")
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         results = list(executor.map(post_operations_chunk, chunks))
 
-    # Flatten the list of results
-    combined_results = [item for sublist in results for item in sublist]
-    return combined_results
+    # returning the flat list of results
+    print("- flattening list of results")
+    res = [item for sublist in results for item in sublist]
+    print("- end flattening list of results")
+    return res
 
 
-def post_operations_chunk(chunk: List[dict], conf_path: str = "~/.cosmian/kms.json") -> List[BulkResult]:
+def post_operations_chunk(chunk: List[dict], conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> List[BulkResult]:
+    print("-- create bulk request")
     req = create_bulk_message(chunk)
-    response = kmip_post(json.dumps(req), conf_path)
+    print("-- posting the request")
+    response = kmip_post(orjson.dumps(req), conf_path)
+    print("-- post successful")
+    print("-- parsing bulk response")
     results = parse_bulk_responses(response)
+    print("-- end parsing bulk response")
     return results

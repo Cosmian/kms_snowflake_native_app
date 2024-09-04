@@ -1,8 +1,7 @@
-import json
 import os
 import requests
 from requests import Response
-from jsonpath_ng import ext
+import math
 from typing import List
 import pandas
 import _snowflake
@@ -15,6 +14,7 @@ from aes_gcm_decrypt import create_aes_gcm_decrypt_request, \
 from aes_gcm_encrypt import create_aes_gcm_encrypt_request, \
     parse_encrypt_response_payload
 from bulk import post_operations
+import csv
 
 # configuration = 'kms.json'
 configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
@@ -30,7 +30,7 @@ def encrypt_aes(data):
         enc = create_aes_gcm_encrypt_request(key_id=pks[i], data=ds[i].encode('utf-8'))
         encryptions.append(enc)
 
-    bulk = post_operations(encryptions, num_threads=threads, threshold=min_elem, conf_path=configuration)
+    bulk = post_operations(encryptions, num_threads=int(math.floor(len(data)/2000)) + 1, threshold=min_elem, conf_path=configuration)
     results = []
 
     for b in bulk:
@@ -51,7 +51,7 @@ def decrypt_aes(data):
     for i in range(0,len(data)):
         enc = create_aes_gcm_decrypt_request(key_id=sks[i], ciphertext=ds[i])
         decryptions.append(enc)
-    bulk = post_operations(decryptions,num_threads=threads, threshold=min_elem, conf_path=configuration)
+    bulk = post_operations(decryptions,num_threads=int(math.floor(len(data)/2000)) + 1, threshold=min_elem, conf_path=configuration)
     results = []
     for b in bulk:
       assert b.operation == 'Decrypt'
@@ -64,78 +64,29 @@ def create_key_aes(user):
     key = create_aes_key(size=256, tags=["tag1", "tag2"], conf_path=configuration)
     return key
 
-# @vectorized(input=pandas.DataFrame)
-# def encrypt_rsa(data):
-#     #res = encrypt_with_rsa(key_id=data[0], cleartext=data[1].encode("utf-8"))
-#     #return res.hex()
-#     pks = data[0]
-#     ds = data[1]
-#     # try:
-#     #   assert len(pks) == 1000
-#     # except AssertionError as e:
-#     #     raise AssertionError("length of the list is: "+ str(len(pks)))
-#     encryptions = [create_rsa_encrypt_request(key_id=pks[i], data=ds[i].encode("utf-8")) for i in range(0,len(ds))]
-#     bulk = post_operations(encryptions, num_threads=5)
-#     results = []
-#     for result in bulk:
-#          res = parse_encrypt_response_payload_rsa(result.to_dict())
-#          results.append(res)
-#     return pandas.Series(results)
+def test() :
+    data = []
+    print("reading data")
+    with open("./data/generated_data_1000000.csv", 'r') as file:
+        csvreader = csv.reader(file)
+        for row in csvreader:
+            data.append(row[1])
+    print("end reading data")
+    key = '0d319307-f766-4869-b90a-02096edb9431'
+    print("creating encrypt request")
+    clear = [create_aes_gcm_encrypt_request(key_id=key, data=x.encode('utf-8')) for x in data[0:1000000]]
+    print("encrypt request done")
+    print("post_operations beginning")
+    bulk = post_operations(clear[0:1000000], num_threads=20, threshold=1500, conf_path=configuration)
+    print("end post_operations")
 
-# @vectorized(input=pandas.DataFrame)
-# def identity(data):
-#     decryptions = []
-#     sks = data[0]
-#     ds = data[1]
-#     threads = 10
-#     min_elem = 1000
-
-#     res = []
-
-#     with requests.Session() as session:
-#       for i in range(0,len(data[0])):
-#         x = session.get('https://snowflake-kms.cosmian.dev/version')
-#         res.append(i)
-
-#     return pandas.Series(res)
-
-
-# @vectorized(input=pandas.DataFrame)
-# def decrypt_rsa(data):
-#     #res = decrypt_with_rsa(key_id=user_key, ciphertext=bytes.fromhex(data))
-#     #return res.decode("utf-8")
-#     decryptions = []
-#     sks = data[0]
-#     ds = data[1]
-#     # try:
-#     #   assert len(sks) == 1000
-#     # except AssertionError as e:
-#     #     raise AssertionError("length of the list is: "+ str(len(sks)))
-#     for i in range(0,len(ds)):
-#         # try:
-#         #   assert pk == d
-#         # except AssertionError as e:
-#         #     raise AssertionError("id: " + str(id) + " public key: " + str(pk) + " data: " + str(d))
-#         dec = create_rsa_decrypt_request(key_id=sks[i], ciphertext=ds[i])
-#         decryptions.append(dec)
-#     bulk = post_operations(decryptions, num_threads=5)
-#     results = []
-#     for b in bulk:
-#       assert b.operation == 'Decrypt'
-#       res = parse_decrypt_response_payload_rsa(b.to_dict())
-#       results.append(res)
-#     return pandas.Series(results)
-
-# def create_keypair_rsa(user):
-#     keys = create_rsa_key_pair(size=2048, tags=["tag1", "tag2"])
-#     return (keys.pk, keys.sk)
-
-
-
+    res = [parse_encrypt_response_payload(x.to_dict()) for x in bulk]
+    # print("result: ",res)
+    return res
 
 def main():
-    # Your code here
-    print("initialized")
+    #test in locale
+    test()
 
 if __name__ == "__main__":
     main()

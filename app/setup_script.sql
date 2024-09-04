@@ -70,7 +70,7 @@ BEGIN
   RUNTIME_VERSION = 3.8
   IMPORTS=('/module-api/kms.json', '/module-api/cosmian_kms.py', '/module-api/aes_gcm_decrypt.py', '/module-api/aes_gcm_encrypt.py', '/module-api/bulk.py', '/module-api/kmip_post.py', '/module-api/create_aes_key.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas','orjson','ray-core')
   HANDLER = 'cosmian_kms.create_key_aes';
 
   CREATE FUNCTION IF NOT EXISTS core.kms_decrypt_aes(user VARCHAR, v BINARY,threads INT, min_par INT)
@@ -79,7 +79,7 @@ BEGIN
   RUNTIME_VERSION = 3.8
   IMPORTS=('/module-api/kms.json', '/module-api/cosmian_kms.py', '/module-api/aes_gcm_decrypt.py', '/module-api/aes_gcm_encrypt.py', '/module-api/bulk.py', '/module-api/kmip_post.py', '/module-api/create_aes_key.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing')
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','orjson','ray-core')
   HANDLER = 'cosmian_kms.decrypt_aes';
 
 
@@ -89,7 +89,7 @@ BEGIN
   RUNTIME_VERSION = 3.8
   IMPORTS=('/module-api/kms.json', '/module-api/cosmian_kms.py', '/module-api/aes_gcm_decrypt.py', '/module-api/aes_gcm_encrypt.py', '/module-api/bulk.py', '/module-api/kmip_post.py', '/module-api/create_aes_key.py')
   EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'))
-  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas')
+  PACKAGES = ('snowflake-snowpark-python', 'requests', 'jsonpath-ng', 'typing','pandas','orjson','ray-core')
   HANDLER = 'cosmian_kms.encrypt_aes';
 
   -- CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_aes_single(user VARCHAR, v VARCHAR)

@@ -1,6 +1,7 @@
-import json
+import orjson
 
 import requests
+#import orjson
 from jsonpath_ng import ext
 
 from kmip_post import kmip_post
@@ -11,7 +12,7 @@ from kmip_post import kmip_post
 # ckms sym decrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c -o /tmp/readme.md /tmp/readme.enc
 #
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-AES_GCM_DECRYPT = """
+AES_GCM_DECRYPT = orjson.loads("""
 {
   "tag": "Decrypt",
   "type": "Structure",
@@ -38,7 +39,7 @@ AES_GCM_DECRYPT = """
     }
   ]
 }
-"""
+""")
 
 # request
 KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
@@ -61,7 +62,7 @@ def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
     Returns:
       str: the RSA encrypt request
     """
-    req = json.loads(AES_GCM_DECRYPT)
+    req = AES_GCM_DECRYPT
     hex_string = ciphertext.hex().upper()
 
     # set the key ID
@@ -115,6 +116,6 @@ def decrypt_with_aes_gcm(key_id: str, ciphertext: bytes, conf_path: str = "~/.co
       bytes: cleartext
     """
     req = create_aes_gcm_decrypt_request(key_id, ciphertext)
-    response = kmip_post(json.dumps(req), conf_path)
+    response = kmip_post(orjson.dumps(req), conf_path)
     cleartext = parse_decrypt_response(response)
     return cleartext
