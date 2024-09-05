@@ -12,7 +12,7 @@ from kmip_post import kmip_post
 # ckms sym decrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c -o /tmp/readme.md /tmp/readme.enc
 #
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-AES_GCM_DECRYPT = orjson.loads("""
+AES_GCM_DECRYPT = """
 {
   "tag": "Decrypt",
   "type": "Structure",
@@ -39,7 +39,7 @@ AES_GCM_DECRYPT = orjson.loads("""
     }
   ]
 }
-""")
+"""
 
 # request
 KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
@@ -48,7 +48,7 @@ NONCE_PATH = ext.parse('$..value[?tag = "IvCounterNonce"]')
 TAG_PATH = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
 
 # response
-CLEARTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
+# CLEARTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
 
 
 def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
@@ -62,7 +62,7 @@ def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
     Returns:
       str: the RSA encrypt request
     """
-    req = AES_GCM_DECRYPT
+    req = orjson.loads(AES_GCM_DECRYPT)
     hex_string = ciphertext.hex().upper()
 
     # set the key ID
@@ -101,7 +101,8 @@ def parse_decrypt_response_payload(payload: dict) -> bytes:
     Returns:
       bytes: the cleartext data
     """
-    return bytes.fromhex(CLEARTEXT_PATH.find(payload)[0].value['value'])
+    # print("", payload)
+    return bytes.fromhex(payload[1]['value'])
 
 def decrypt_with_aes_gcm(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
     """
