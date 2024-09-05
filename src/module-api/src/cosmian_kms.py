@@ -4,8 +4,8 @@ from requests import Response
 import math
 from typing import List
 import pandas
-# import _snowflake
-# from _snowflake import vectorized
+import _snowflake
+from _snowflake import vectorized
 from operator import itemgetter
 from concurrent.futures import ThreadPoolExecutor
 from create_aes_key import create_aes_key
@@ -18,7 +18,7 @@ import csv
 
 # configuration = 'kms.json'
 configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
-# @vectorized(input=pandas.DataFrame, max_batch_size=50000)
+@vectorized(input=pandas.DataFrame, max_batch_size=50000)
 def encrypt_aes(data):
     encryptions = []
     pks = data[0]
@@ -40,7 +40,7 @@ def encrypt_aes(data):
     return pandas.Series(results)
 
 
-# @vectorized(input=pandas.DataFrame, max_batch_size=20000)
+@vectorized(input=pandas.DataFrame, max_batch_size=20000)
 def decrypt_aes(data):
     decryptions = []
     sks = data[0]
