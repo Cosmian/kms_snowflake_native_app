@@ -1,8 +1,7 @@
 import orjson
 from typing import List, Any
-
+from copy import deepcopy
 import requests
-from jsonpath_ng import ext
 
 from kmip_post import kmip_post
 
@@ -12,7 +11,7 @@ from kmip_post import kmip_post
 # ckms rsa encrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c cleartext.txt -o ciphertext.enc
 
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-AES_ENCRYPT = """
+AES_ENCRYPT = orjson.loads("""
 {
   "tag": "Encrypt",
   "type": "Structure",
@@ -29,11 +28,11 @@ AES_ENCRYPT = """
     }
   ]
 }
-"""
+""")
 
 # request
-KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
-DATA_PATH = ext.parse('$..value[?tag = "Data"]')
+# KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
+# DATA_PATH = ext.parse('$..value[?tag = "Data"]')
 
 # response
 # CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
@@ -52,13 +51,16 @@ def create_aes_gcm_encrypt_request(key_id: str, data: bytes) -> dict:
     Returns:
       str: the AES encrypt request
     """
-    req = orjson.loads(AES_ENCRYPT)
+    req = deepcopy(AES_ENCRYPT)
 
     # set the key ID
-    KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
+    req['value'][0]['value'] = key_id
+    # KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
 
     # set the data
-    DATA_PATH.find(req)[0].value['value'] = data.hex().upper()
+    req['value'][1]['value'] = data.hex().upper()
+    # DATA_PATH.find(req)[0].value['value'] = data.hex().upper()
+
     return req
 
 

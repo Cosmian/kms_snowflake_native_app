@@ -18,7 +18,7 @@ import csv
 
 # configuration = 'kms.json'
 configuration = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
-@vectorized(input=pandas.DataFrame, max_batch_size=50000)
+@vectorized(input=pandas.DataFrame, max_batch_size=20000)
 def encrypt_aes(data):
     encryptions = []
     pks = data[0]
@@ -75,6 +75,7 @@ def test() :
     print("creating encrypt request")
     print(data[1:11])
     clear = [create_aes_gcm_encrypt_request(key_id=key, data=x.encode('utf-8')) for x in data[1:11]]
+    print("clear: ", clear)
     print("encrypt request done")
     print("post_operations beginning")
     bulk = post_operations(clear, num_threads=10, threshold=1500, conf_path=configuration)
@@ -87,7 +88,7 @@ def test() :
     bulk = post_operations(ctx, num_threads=10, threshold=1500, conf_path=configuration)
     print("end post operations")
     res = [parse_decrypt_response_payload(x.value) for x in bulk]
-
+    print(res)
     return res
 
 def main():
