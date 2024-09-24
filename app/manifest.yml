@@ -9,7 +9,9 @@ version:
 artifacts:
   setup_script: setup_script.sql
   extension_code: true
-
+configuration:
+  trace_level: OFF
+  log_level: DEBUG
 references:
   - external_access_reference:
       label: "Cosmian Access Integration"

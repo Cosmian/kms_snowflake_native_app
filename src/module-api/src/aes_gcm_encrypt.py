@@ -87,11 +87,9 @@ def parse_encrypt_response_payload(payload: dict) -> bytes:
         bytes: the concatenated nonce, ciphertext and tag
 
     """
-    # print("", payload)
     ciphertext = payload[1]['value']
     nonce = payload[2]['value']
     tag = payload[3]['value']
-    # print(nonce+ciphertext+tag)
     return bytes.fromhex(nonce+ciphertext+tag)
 
 def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:

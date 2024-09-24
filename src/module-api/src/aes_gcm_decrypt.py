@@ -97,8 +97,6 @@ def parse_decrypt_response_payload(payload: dict) -> bytes:
     Returns:
       bytes: the cleartext data
     """
-    # print("", payload)
-    # print(payload)
     return bytes.fromhex(payload[1]['value'])
 
 def decrypt_with_aes_gcm(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
