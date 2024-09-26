@@ -9,6 +9,8 @@ import time
 from functools import partial
 
 logger = logging.getLogger("kms_decrypt")
+
+
 class BulkResult:
     operation: str
     value: dict
@@ -118,56 +120,34 @@ def create_bulk_message(operations: List[dict]) -> dict:
     return bulk_message
 
 
-def parse_bulk_responses(response: requests.Response, id : int, dim : int) -> List[BulkResult]:
-    start_response_json = time.perf_counter()
+def parse_bulk_responses(response: requests.Response) -> List[BulkResult]:
     response_json = response.json()
-    end_response_json = time.perf_counter()
-    logger.debug("response.json()",
-                  extra ={"id batch" : id,
-                    "order" : 5,
-                    "#processed_data" :
-                        dim,
-                    "time_for_single_exec" :
-                        (end_response_json
-                            - start_response_json) / dim,
-                    "effective_time" : end_response_json -
-                        start_response_json,
-                    "size snowflake batch" : dim})
-
-    start_loop_bulk_result = time.perf_counter()
     res = [BulkResult(RESPONSE_OPERATION.find(item)[0].value['value'],
-                       RESPONSE_PAYLOAD_PATH.find(item)[0].value['value'])
-                            for item in ITEMS_PATH.find(response_json)[0].value['value']]
-    end_loop_bulk_result = time.perf_counter()
-    logger.debug("loop parse_bulk_responses",
-                  extra ={"id batch" : id,
-                    "order" : 6,
-                    "#processed_data" :
-                        dim,
-                    "time_for_single_exec" :
-                        (end_loop_bulk_result
-                            - start_loop_bulk_result) / dim,
-                    "effective_time" : end_loop_bulk_result -
-                        start_loop_bulk_result,
-                    "size snowflake batch" : dim})
+                      RESPONSE_PAYLOAD_PATH.find(item)[0].value['value'])
+           for item in ITEMS_PATH.find(response_json)[0].value['value']]
     return res
 
 
 # The threshold number of operations for multithreading
 MULTI_THREAD_THRESHOLD = 100
 # The default number of threads to use
-NUM_THREADS = 5
+DEFAULT_NUM_THREADS = 5
 
 
-def post_operations(operations: List[dict], id : int, num_threads=NUM_THREADS, threshold=MULTI_THREAD_THRESHOLD,
-                    conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> List[BulkResult]:
+def post_operations(operations: List[dict],
+                    batch_id: int,
+                    num_threads=DEFAULT_NUM_THREADS,
+                    threshold=MULTI_THREAD_THRESHOLD,
+                    conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') \
+        -> List[BulkResult]:
     """
     Post a list of operations to the KMS
     Args:
         operations: the operations to post
+        batch_id: the batch ID (for logging purposes)
         num_threads: the number of threads to use. Defaults to NUM_THREADS
-        threshold: the threshold number of operations for multithreading. Defaults to MULTI_THREAD_THRESHOLD
-        conf_path: the path to the configuration file. Defaults to "~/.cosmian/kms.json"
+        threshold: the threshold number of operations for multithreading. Default to MULTI_THREAD_THRESHOLD
+        conf_path: the path to the configuration file. Default to "~/.cosmian/kms.json"
 
     Returns:
         List[BulkResult]: the results of the operations
@@ -176,63 +156,42 @@ def post_operations(operations: List[dict], id : int, num_threads=NUM_THREADS, t
     num_operations = len(operations)
     # do not multithread for less than threshold operations
     if num_operations < threshold:
-        return post_operations_chunk(id, operations, conf_path)
+        return post_operations_chunk(batch_id, operations, conf_path)
     # Split the operations into chunks
     k, m = divmod(len(operations), num_threads)
     chunks = [operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_threads)]
     # Post the operations in parallel
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        results = list(executor.map(partial(post_operations_chunk, id), chunks))
+        results = list(executor.map(partial(post_operations_chunk, batch_id), chunks))
 
     # returning the flat list of results
     res = [item for sublist in results for item in sublist]
     return res
 
 
-def post_operations_chunk(id:int, chunk: List[dict], conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> List[BulkResult]:
-    start_create_bulk_message = time.perf_counter()
+def post_operations_chunk(batch_id: int, chunk: List[dict],
+                          conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> List[
+    BulkResult]:
+    t_start = time.perf_counter()
     req = create_bulk_message(chunk)
-    end_create_bulk_message = time.perf_counter()
-    logger.debug("create_bulk_message",
-                  extra ={"id batch" : id,
-                    "order" : 2,
-                    "#processed_data" :
-                        len(chunk),
-                    "time_for_single_exec" :
-                        (end_create_bulk_message
-                            - start_create_bulk_message) / len(chunk),
-                    "effective_time" : end_create_bulk_message -
-                        start_create_bulk_message,
-                    "size snowflake batch" : len(chunk)})
+    t_create_bulk_message = time.perf_counter() - t_start
 
-    start_kmip_post = time.perf_counter()
-    response = kmip_post(orjson.dumps(req), id, len(chunk), conf_path)
-    end_kmip_post = time.perf_counter()
-    logger.debug("kmip_post",
-                  extra ={"id batch" : id,
-                    "order" : 4,
-                    "#processed_data" :
-                        len(chunk),
-                    "time_for_single_exec" :
-                        (end_kmip_post
-                            - start_kmip_post) / len(chunk),
-                    "effective_time" : end_kmip_post -
-                        start_kmip_post,
-                    "size snowflake batch" : len(chunk)})
+    t_start = time.perf_counter()
+    response = kmip_post(orjson.dumps(req), conf_path)
+    t_kmip_post = time.perf_counter() - t_start
 
-    start_parse_bulk_responses = time.perf_counter()
-    results = parse_bulk_responses(response, id, len(chunk))
-    end_parse_bulk_responses = time.perf_counter()
-    logger.debug("parse_bulk_responses",
-                  extra ={"id batch" : id,
-                    "order" : 7,
-                    "#processed_data" :
-                        len(chunk),
-                    "time_for_single_exec" :
-                        (end_parse_bulk_responses
-                            - start_parse_bulk_responses) / len(chunk),
-                    "effective_time" : end_parse_bulk_responses -
-                        start_parse_bulk_responses,
-                    "size snowflake batch" : len(chunk)})
+    t_start = time.perf_counter()
+    results = parse_bulk_responses(response)
+    t_parse_bulk_responses = time.perf_counter() - t_start
 
+    logger.debug(
+        "post operations chunk",
+        extra={
+            "id": batch_id,
+            "size": len(chunk),
+            "request": t_create_bulk_message,
+            "post": t_kmip_post,
+            "response": t_parse_bulk_responses,
+        }
+    )
     return results

@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger("kms_decrypt")
 
+
 def read_kms_configuration(conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'):
     """
     Read  the KMS configuration
@@ -20,7 +21,8 @@ def read_kms_configuration(conf: str = '{"kms_server_url": "https://snowflake-km
     return data
 
 
-def kmip_post(json_str: str, id : int, dim : int, conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> requests.Response:
+def kmip_post(json_str: str,
+              conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> requests.Response:
     """
     Post a KMIP request to a KMIP server
 
@@ -40,18 +42,7 @@ def kmip_post(json_str: str, id : int, dim : int, conf: str = '{"kms_server_url"
 
     if "kms_access_token" in conf:
         headers["Authorization"] = "Bearer " + conf["kms_access_token"]
-    start_post = time.perf_counter()
+
     res = requests.post(kms_server_url, headers=headers, data=json_str)
-    end_post = time.perf_counter()
-    logger.debug("post",
-                  extra ={"id batch" : id,
-                    "order" : 3,
-                    "#processed_data" :
-                        dim,
-                    "time_for_single_exec" :
-                        (end_post
-                            - start_post) / dim,
-                    "effective_time" : end_post -
-                        start_post,
-                    "size snowflake batch" : dim})
+
     return res

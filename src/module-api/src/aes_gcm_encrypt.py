@@ -40,13 +40,13 @@ AES_ENCRYPT = orjson.loads("""
 # TAG_PATH = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
 
 
-def create_aes_gcm_encrypt_request(key_id: str, data: bytes) -> dict:
+def create_aes_gcm_encrypt_request(key_id: str, cleartext: bytes) -> dict:
     """
     Create an AES GCM encrypt request
 
     Args:
       key_id (str): AES key ID
-      data (bytes): data to encrypt
+      cleartext (bytes): data to encrypt
 
     Returns:
       str: the AES encrypt request
@@ -58,7 +58,7 @@ def create_aes_gcm_encrypt_request(key_id: str, data: bytes) -> dict:
     # KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
 
     # set the data
-    req['value'][1]['value'] = data.hex().upper()
+    req['value'][1]['value'] = cleartext.hex().upper()
     # DATA_PATH.find(req)[0].value['value'] = data.hex().upper()
 
     return req
@@ -81,7 +81,7 @@ def parse_encrypt_response_payload(payload: dict) -> bytes:
     """
     Parse an AES encrypt response JSON payload
     Args:
-        response: the AES GCM encrypt response
+        payload: the AES GCM encrypt response
 
     Returns:
         bytes: the concatenated nonce, ciphertext and tag
