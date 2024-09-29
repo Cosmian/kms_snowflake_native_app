@@ -1,9 +1,7 @@
 import orjson
-from typing import List, Any
 from copy import deepcopy
 import requests
-
-from kmip_post import kmip_post
+from ..kmip_post import kmip_post
 
 # This JSON was generated using the following CLI command:
 #
@@ -29,6 +27,7 @@ AES_ENCRYPT = orjson.loads("""
   ]
 }
 """)
+
 
 # request
 # KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
@@ -90,7 +89,8 @@ def parse_encrypt_response_payload(payload: dict) -> bytes:
     ciphertext = payload[1]['value']
     nonce = payload[2]['value']
     tag = payload[3]['value']
-    return bytes.fromhex(nonce+ciphertext+tag)
+    return bytes.fromhex(nonce + ciphertext + tag)
+
 
 def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
     """
@@ -108,5 +108,3 @@ def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = "~/.cos
     response = kmip_post(orjson.dumps(req), conf_path)
     ciphertext = parse_encrypt_response(response)
     return ciphertext
-
-

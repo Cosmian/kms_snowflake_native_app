@@ -1,10 +1,10 @@
 import pandas
-from create_aes_key import create_aes_key
-from aes_gcm_decrypt import create_aes_gcm_decrypt_request, \
+from lib.aes.create_aes_key import create_aes_key
+from lib.aes.aes_gcm_decrypt import create_aes_gcm_decrypt_request, \
     parse_decrypt_response_payload
-from aes_gcm_encrypt import create_aes_gcm_encrypt_request, \
+from lib.aes.aes_gcm_encrypt import create_aes_gcm_encrypt_request, \
     parse_encrypt_response_payload
-from bulk import post_operations, DEFAULT_NUM_THREADS
+from lib.bulk import post_operations
 import csv
 import logging
 import random
@@ -14,7 +14,7 @@ snowflake_logger = logging.getLogger("kms_decrypt")
 
 # configuration = 'kms.json'
 CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
-NUM_THREADS = 2
+NUM_THREADS = 5
 THRESHOLD = 100
 
 
@@ -140,14 +140,14 @@ def test():
     print("clear: ", clear)
     print("encrypt request done")
     print("post_operations beginning")
-    bulk = post_operations(clear, num_threads=10, threshold=1500, conf_path=CONFIGURATION)
+    bulk = post_operations(clear, batch_id=0, num_threads=10, threshold=1500, conf_path=CONFIGURATION)
     print("end post_operations")
     res = [parse_encrypt_response_payload(x.value) for x in bulk]
 
     print("starting decrypt")
     print("created decrypt request")
     ctx = [create_aes_gcm_decrypt_request(key_id=key, ciphertext=x) for x in res]
-    bulk = post_operations(ctx, num_threads=10, threshold=1500, conf_path=CONFIGURATION)
+    bulk = post_operations(ctx, batch_id=0, num_threads=10, threshold=1500, conf_path=CONFIGURATION)
     print("end post operations")
     res = [parse_decrypt_response_payload(x.value) for x in bulk]
     print(res)
@@ -155,4 +155,4 @@ def test():
 
 
 if __name__ == "__main__":
-    main()
+    test()

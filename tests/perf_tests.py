@@ -14,8 +14,12 @@ def generate_random_string(length):
 
 
 def test_performance():
+    """
+    Test the performance of the encrypting and decrypting UDF
+    The perf stats will be written to the log
+    """
     key_id = '0d319307-f766-4869-b90a-02096edb9431'
-    batch_size = 20000
+    batch_size = 100000
     snowflake_logger.info(f"Testing performance with batch size {batch_size}")
 
     # Generate a random batch of data
