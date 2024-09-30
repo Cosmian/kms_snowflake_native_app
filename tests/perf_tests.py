@@ -13,6 +13,9 @@ def generate_random_string(length):
     return ''.join(random.choice(letters) for _ in range(length))
 
 
+def test_encrypt():
+    
+
 def test_performance():
     """
     Test the performance of the encrypting and decrypting UDF

@@ -1,12 +1,13 @@
-import orjson
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+import orjson
 from typing import List
 import requests
 from jsonpath_ng import ext
 from kmip_post import kmip_post
 import logging
 import time
-from functools import partial
+from client_configuration import ClientConfiguration
 
 logger = logging.getLogger("kms_decrypt")
 
@@ -134,29 +135,28 @@ MULTI_THREAD_THRESHOLD = 100
 DEFAULT_NUM_THREADS = 5
 
 
-def post_operations(operations: List[dict],
-                    batch_id: int,
-                    num_threads=DEFAULT_NUM_THREADS,
-                    threshold=MULTI_THREAD_THRESHOLD,
-                    conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') \
-        -> List[BulkResult]:
+def post_operations(
+        conf: ClientConfiguration,
+        operations: List[dict],
+        batch_id: int,
+        num_threads=DEFAULT_NUM_THREADS,
+        threshold=MULTI_THREAD_THRESHOLD) -> List[BulkResult]:
     """
     Post a list of operations to the KMS
     Args:
+        conf: the ClientConfiguration to use
         operations: the operations to post
         batch_id: the batch ID (for logging purposes)
         num_threads: the number of threads to use. Defaults to NUM_THREADS
         threshold: the threshold number of operations for multithreading. Default to MULTI_THREAD_THRESHOLD
-        conf_path: the path to the configuration file. Default to "~/.cosmian/kms.json"
 
     Returns:
         List[BulkResult]: the results of the operations
     """
-
     num_operations = len(operations)
     # do not multithread for less than threshold operations
     if num_operations < threshold:
-        return post_operations_chunk(batch_id, operations, conf_path)
+        return post_operations_chunk(conf, batch_id, operations)
     # Split the operations into chunks
     k, m = divmod(len(operations), num_threads)
     chunks = [operations[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(num_threads)]
@@ -169,15 +169,13 @@ def post_operations(operations: List[dict],
     return res
 
 
-def post_operations_chunk(batch_id: int, chunk: List[dict],
-                          conf_path: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> List[
-    BulkResult]:
+def post_operations_chunk(conf: ClientConfiguration, batch_id: int, chunk: List[dict]) -> List[BulkResult]:
     t_start = time.perf_counter()
     req = create_bulk_message(chunk)
     t_create_bulk_message = time.perf_counter() - t_start
 
     t_start = time.perf_counter()
-    response = kmip_post(orjson.dumps(req), conf_path)
+    response = kmip_post(conf, orjson.dumps(req))
     t_kmip_post = time.perf_counter() - t_start
 
     t_start = time.perf_counter()

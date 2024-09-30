@@ -3,11 +3,14 @@ from typing import List
 from leb128 import u
 import io
 
-class KmipError(Exception):
+
+class BulkDataError(Exception):
     pass
+
 
 class ErrorReason:
     ILLEGAL_OBJECT_TYPE = "Illegal_Object_Type"
+
 
 @dataclass
 class BulkData:
@@ -32,14 +35,13 @@ class BulkData:
     @classmethod
     def deserialize(cls, serialized: bytearray) -> 'BulkData':
         if not cls.is_serialized_bulk_data(serialized):
-            raise KmipError(ErrorReason.ILLEGAL_OBJECT_TYPE)
+            raise BulkDataError(ErrorReason.ILLEGAL_OBJECT_TYPE)
         data = io.BytesIO(serialized[2:])
-                          
-        length, _num_bytes = u.decode_reader(data)        
+
+        length, _num_bytes = u.decode_reader(data)
         result = []
         for _ in range(length):
             item_length, _num_bytes = u.decode_reader(data)
-            item =  bytearray(data.read(item_length))
+            item = bytearray(data.read(item_length))
             result.append(item)
         return cls(result)
-

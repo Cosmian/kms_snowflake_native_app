@@ -1,38 +1,24 @@
 import json
+from typing import Any
 import requests
-import time
+from client_configuration import ClientConfiguration
 import logging
 
 logger = logging.getLogger("kms_decrypt")
 
 
-def read_kms_configuration(conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'):
-    """
-    Read  the KMS configuration
-
-    Returns:
-      dict: KMS configuration
-    """
-    # Define the file path
-    # file_path = os.path.expanduser(conf_path)
-    # Open the file and load the JSON
-    # with open(file_path, 'r') as f:
-    data = json.loads(conf)
-    return data
-
-
-def kmip_post(json_str: str,
-              conf: str = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}') -> requests.Response:
+def kmip_post(
+        configuration: ClientConfiguration,
+        operation: dict) -> dict:
     """
     Post a KMIP request to a KMIP server
 
     Returns:
       dict: KMIP response
     """
-    conf = read_kms_configuration(conf)
 
     # if "kms_server_url" in conf:
-    kms_server_url = conf["kms_server_url"] + "/kmip/2_1"
+    kms_server_url = configuration.kms_server_url + "/kmip/2_1"
     # else:
     #    raise Exception("kms_server_url not found in configuration file " + conf)
 
@@ -40,9 +26,13 @@ def kmip_post(json_str: str,
         "Content-Type": "application/json",
     }
 
-    if "kms_access_token" in conf:
-        headers["Authorization"] = "Bearer " + conf["kms_access_token"]
+    if "kms_access_token" in configuration:
+        headers["Authorization"] = "Bearer " + configuration.kms_access_token
 
-    res = requests.post(kms_server_url, headers=headers, data=json_str)
+    res = requests.post(kms_server_url, headers=headers, data=json.dumps(operation))
 
-    return res
+    if res.status_code != 200:
+        logger.error(f"Error {res.status_code} in KMIP POST {res.text}")
+        raise Exception(f"Error {res.status_code} in KMIP POST {res.text}")
+
+    return res.json()
