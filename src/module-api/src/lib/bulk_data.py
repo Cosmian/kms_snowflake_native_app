@@ -1,14 +1,13 @@
 from dataclasses import dataclass
-from typing import List
 from leb128 import u
 import io
 
 
 @dataclass
 class BulkData:
-    data: List[bytes]
+    data: list[bytes]
 
-    def __init__(self, data: List[bytes]):
+    def __init__(self, data: list[bytes]):
         self.data = data
 
     @staticmethod
@@ -16,23 +15,15 @@ class BulkData:
         return len(serialized) > 2 and serialized[0] == 0x87 and serialized[1] == 0x87
 
     def serialize(self) -> bytes:
-        # result = bytearray()
-        # # Write the header
-        # result.extend([0x87, 0x87])
-        # # Write the number of items using leb128 encoding
-        # result.extend(u.encode(len(self.data)))
-        # for item in self.data:
-        #     result.extend(u.encode(len(item)))
-        #     result.extend(item)
-        # return result
         result = io.BytesIO()
         # Write the header  
         result.write(bytes([0x87, 0x87]))
         # Write the number of items using leb128 encoding        
         result.write(u.encode(len(self.data)))
-        for item in self.data:
-            result.write(u.encode(len(item)))
-            result.write(item)
+        # Gather all encoded items
+        encoded_items = [u.encode(len(item)) + item for item in self.data]
+        # Write all items at once
+        result.write(b''.join(encoded_items))
         return result.getvalue()
 
     @classmethod
@@ -42,9 +33,9 @@ class BulkData:
         _header = data.read(2)
         # read the number of items
         num_items, _num_bytes = u.decode_reader(data)
-        result = []
-        for _ in range(num_items):
-            item_length, _num_bytes = u.decode_reader(data)
-            item = bytes(data.read(item_length))
-            result.append(item)
+        # Preallocate the list for the result
+        result = [None] * num_items
+        for i in range(num_items):
+            item_length, _ = u.decode_reader(data)
+            result[i] = data.read(item_length)
         return cls(result)
