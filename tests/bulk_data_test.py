@@ -1,5 +1,15 @@
 from lib.bulk_data import BulkData
-import timeit
+import logging
+import time
+
+logger = logging.getLogger(__name__)
+slog = logging.LoggerAdapter(logger, {
+    "id": "",
+    "size": 0,
+    "request": 0,
+    "post": 0,
+    "response": 0
+})
 
 
 def test_bulk_data():
@@ -19,17 +29,29 @@ def test_bulk_data():
 
 
 def benchmark_bulk_data(bulk_data):
+    t_start = time.perf_counter()
     serialized = bulk_data.serialize()
+    t_serialize = time.perf_counter() - t_start
+    slog.info(f"Serialize: {t_serialize}s")
+
+    t_start = time.perf_counter()
     _deserialized = BulkData.deserialize(serialized)
-    # assert bulk_data == deserialized
+    t_deserialize = time.perf_counter() - t_start
+    slog.info(f"deserialize: {t_deserialize}s")
 
 
 def test_bulk_data_benchmark():
+    num_samples = 5000000
+    slog.info(f"Testing performance with bulk data of { num_samples } samples")
+    t_start = time.perf_counter()
     data = [
-        bytearray([0x01] * 64) * 100000
+        bytearray([0x01] * 64) * num_samples
     ]
     bulk_data = BulkData(data)
-    l = lambda : benchmark_bulk_data(bulk_data)
-    time_taken = timeit.timeit(l, number=1000)
-    print(f"Time taken for 1000 iterations: {time_taken:.6f} seconds")
+    t_generate = time.perf_counter() - t_start
+    slog.info(f"Generate: {t_generate}s")
 
+    t_start = time.perf_counter()
+    benchmark_bulk_data(bulk_data)
+    t_all = time.perf_counter() - t_start
+    slog.info(f"serialize+deserialize: {t_all}s, i.e. {t_all / num_samples * 1000000:.6f}µs per item")

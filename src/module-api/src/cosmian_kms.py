@@ -1,4 +1,3 @@
-import json
 import logging
 import random
 import time
@@ -73,13 +72,14 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 
     # Parse the response
     t_start = time.perf_counter()
-    ciphertexts=[]
+    # ciphertexts = []
     if no_bulk_data_encoding:
-        ciphertexts.append(parse_encrypt_response_payload(results[0]))
+        ciphertexts = [parse_encrypt_response_payload(results[0])]
     else:
-        for r in results:
-            ct = BulkData.deserialize(parse_encrypt_response_payload(r)).data
-            ciphertexts.extend(ct)
+        ciphertexts = [ct for r in results for ct in BulkData.deserialize(parse_encrypt_response_payload(r)).data]
+        # for r in results:
+        #     ct = BulkData.deserialize(parse_encrypt_response_payload(r)).data
+        #     ciphertexts.extend(ct)
     data_frame = pandas.Series(ciphertexts)
     t_parse_encrypt_response_payload = time.perf_counter() - t_start
 
@@ -153,15 +153,12 @@ def decrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 
     # Parse the response
     t_start = time.perf_counter()
-    ciphertexts=[]
     if no_bulk_data_encoding:
-        ciphertexts.append(parse_decrypt_response_payload(results[0]))
+        plaintexts = [parse_decrypt_response_payload(results[0])]
     else:
-        for r in results:
-            ct = BulkData.deserialize(parse_decrypt_response_payload(r)).data
-            ciphertexts.extend(ct)
-    data_frame = pandas.Series(ciphertexts)
+        plaintexts = [ct for r in results for ct in BulkData.deserialize(parse_decrypt_response_payload(r)).data]
     t_parse_decrypt_response_payload = time.perf_counter() - t_start
+    data_frame = pandas.Series(plaintexts)
 
     logger.debug(
         "decrypt_aes",

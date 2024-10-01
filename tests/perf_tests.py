@@ -5,11 +5,11 @@ import logging
 
 from cosmian_kms import encrypt_aes, decrypt_aes, snowflake_logger
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s) | id=%(id)s | size=%(size)s | request=%(request)s | post=%(post)s | response=%(response)s",
-    datefmt = "%Y-%m-%d %H:%M:%S",
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     format="%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s) | id=%(id)s | size=%(size)s | request=%(request)s | post=%(post)s | response=%(response)s",
+#     datefmt = "%Y-%m-%d %H:%M:%S",
+# )
 logger = logging.getLogger(__name__)
 slog = logging.LoggerAdapter(logger, {
     "id": "",
@@ -31,7 +31,7 @@ def generate_random_bytearray(length) -> bytearray:
 
 def test_performance():
     key_id = '0d319307-f766-4869-b90a-02096edb9431'
-    batch_size = 4000000
+    batch_size = 1000000
     slog.info(f"Testing performance with batch size {batch_size}")
 
     # Generate a random batch of data
