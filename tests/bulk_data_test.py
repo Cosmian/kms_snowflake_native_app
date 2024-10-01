@@ -14,9 +14,9 @@ slog = logging.LoggerAdapter(logger, {
 
 def test_bulk_data():
     data = [
-        bytearray([0x01, 0x02, 0x03]),
-        bytearray([0x04, 0x05, 0x06]),
-        bytearray([0x07] * 10)
+        bytes([0x01, 0x02, 0x03]),
+        bytes([0x04, 0x05, 0x06]),
+        bytes([0x07] * 10)
     ]
     bulk_data = BulkData(data)
     serialized = bulk_data.serialize()

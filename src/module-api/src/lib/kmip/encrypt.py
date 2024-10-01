@@ -9,7 +9,7 @@ from lib.kmip_post import kmip_post
 # ckms rsa encrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c cleartext.txt -o ciphertext.enc
 
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-AES_ENCRYPT = orjson.loads("""
+ENCRYPT = orjson.loads("""
 {
   "tag": "Encrypt",
   "type": "Structure",
@@ -29,17 +29,8 @@ AES_ENCRYPT = orjson.loads("""
 """)
 
 
-# request
-# KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
-# DATA_PATH = ext.parse('$..value[?tag = "Data"]')
 
-# response
-# CIPHERTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
-# NONCE_PATH = ext.parse('$..value[?tag = "IvCounterNonce"]')
-# TAG_PATH = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
-
-
-def create_aes_gcm_encrypt_request(key_id: str, cleartext: bytes) -> dict:
+def create_encrypt_request(key_id: str, cleartext: bytes) -> dict:
     """
     Create an AES GCM encrypt request
 
@@ -50,7 +41,7 @@ def create_aes_gcm_encrypt_request(key_id: str, cleartext: bytes) -> dict:
     Returns:
       str: the AES encrypt request
     """
-    req = deepcopy(AES_ENCRYPT)
+    req = deepcopy(ENCRYPT)
 
     # set the key ID
     req['value'][0]['value'] = key_id
@@ -63,20 +54,7 @@ def create_aes_gcm_encrypt_request(key_id: str, cleartext: bytes) -> dict:
     return req
 
 
-def parse_encrypt_response(response: requests.Response) -> bytes:
-    """
-    Parse an AES encrypt response
-    Args:
-        response: the AES GCM encrypt response
-
-    Returns:
-        bytes: the concatenated nonce, ciphertext and tag
-
-    """
-    return parse_encrypt_response_payload(response.json())
-
-
-def parse_encrypt_response_payload(response: dict) -> bytearray:
+def parse_encrypt_response(response: dict) -> bytes:
     """
     Parse an AES encrypt response JSON payload
     Args:
@@ -97,22 +75,5 @@ def parse_encrypt_response_payload(response: dict) -> bytearray:
             nonce = value['value']
         elif value['tag'] == 'AuthenticatedEncryptionTag':
             tag = value['value']
-    return bytearray.fromhex(nonce+ciphertext+tag)
+    return bytes.fromhex(nonce+ciphertext+tag)
 
-
-def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
-    """
-    Encrypt cleartext with AES GCM
-
-    Args:
-      key_id (str): RSA key ID
-      cleartext (bytes): cleartext to encrypt
-      conf_path (str): KMS configuration file path
-
-    Returns:
-      bytes: AES GCM encrypted data as the concatenation of the nonce, ciphertext and tag
-    """
-    req = create_aes_gcm_encrypt_request(key_id, cleartext)
-    response = kmip_post(orjson.dumps(req), conf_path)
-    ciphertext = parse_encrypt_response(response)
-    return ciphertext

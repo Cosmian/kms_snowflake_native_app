@@ -7,11 +7,10 @@ from typing import List
 
 import pandas
 
-from lib.aes.aes_gcm_decrypt import create_aes_gcm_decrypt_request, \
-    parse_decrypt_response_payload
-from lib.aes.aes_gcm_encrypt import create_aes_gcm_encrypt_request, \
-    parse_encrypt_response_payload
-from lib.aes.create_aes_key import create_aes_key
+from lib.kmip.decrypt import create_decrypt_request, \
+    parse_decrypt_response
+from lib.kmip.encrypt import create_encrypt_request, \
+    parse_encrypt_response
 from lib.bulk_data import BulkData
 from lib.client_configuration import ClientConfiguration
 from lib.kmip_post import kmip_post
@@ -20,9 +19,11 @@ snowflake_logger = logging.getLogger("kms_decrypt")
 
 # configuration = 'kms.json'
 # CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
-CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
-NUM_THREADS = 8
-THRESHOLD = 200000
+# CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
+CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
+# the heuristic seems to be 5 times the number of cores for 64 bytes plaintexts
+NUM_THREADS = 55
+THRESHOLD = 800000
 
 
 def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
@@ -39,11 +40,11 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
-        requests = [create_aes_gcm_encrypt_request(key_id=key_ids[0], cleartext=plaintexts[0])]
+        requests = [create_encrypt_request(key_id=key_ids[0], cleartext=plaintexts[0])]
     else:
         if len(plaintexts) <= THRESHOLD:
             requests = [
-                create_aes_gcm_encrypt_request(
+                create_encrypt_request(
                     key_id=key_ids[0],
                     cleartext=BulkData(plaintexts).serialize()
                 )
@@ -52,7 +53,7 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
             # Split the plaintexts into chunks
             k, m = divmod(len(plaintexts), NUM_THREADS)
             requests = [
-                create_aes_gcm_encrypt_request(
+                create_encrypt_request(
                     key_id=key_ids[0],
                     cleartext=BulkData(plaintexts[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]).serialize()
                 )
@@ -74,9 +75,9 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
     t_start = time.perf_counter()
     # ciphertexts = []
     if no_bulk_data_encoding:
-        ciphertexts = [parse_encrypt_response_payload(results[0])]
+        ciphertexts = [parse_encrypt_response(results[0])]
     else:
-        ciphertexts = [ct for r in results for ct in BulkData.deserialize(parse_encrypt_response_payload(r)).data]
+        ciphertexts = [ct for r in results for ct in BulkData.deserialize(parse_encrypt_response(r)).data]
         # for r in results:
         #     ct = BulkData.deserialize(parse_encrypt_response_payload(r)).data
         #     ciphertexts.extend(ct)
@@ -118,24 +119,22 @@ def decrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
-        requests = [create_aes_gcm_decrypt_request(key_id=key_ids[0], ciphertext=ciphertexts[0])]
+        requests = [create_decrypt_request(key_id=key_ids[0], ciphertext=ciphertexts[0], is_authenticated_aes=True)]
     else:
         if len(ciphertexts) <= THRESHOLD:
             requests = [
-                create_aes_gcm_decrypt_request(
+                create_decrypt_request(
                     key_id=key_ids[0],
                     ciphertext=BulkData(ciphertexts).serialize(),
-                    bulk=True
                 )
             ]
         else:
             # Split the ciphertexts into chunks
             k, m = divmod(len(ciphertexts), NUM_THREADS)
             requests = [
-                create_aes_gcm_decrypt_request(
+                create_decrypt_request(
                     key_id=key_ids[0],
                     ciphertext=BulkData(ciphertexts[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]).serialize(),
-                    bulk=True
                 )
                 for i in range(NUM_THREADS)
             ]
@@ -154,11 +153,11 @@ def decrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
     # Parse the response
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
-        plaintexts = [parse_decrypt_response_payload(results[0])]
+        plaintexts = [parse_decrypt_response(results[0])]
     else:
-        plaintexts = [ct for r in results for ct in BulkData.deserialize(parse_decrypt_response_payload(r)).data]
-    t_parse_decrypt_response_payload = time.perf_counter() - t_start
+        plaintexts = [ct for r in results for ct in BulkData.deserialize(parse_decrypt_response(r)).data]
     data_frame = pandas.Series(plaintexts)
+    t_parse_decrypt_response_payload = time.perf_counter() - t_start
 
     logger.debug(
         "decrypt_aes",
@@ -178,40 +177,3 @@ def decrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 # see https://docs.snowflake.com/en/developer-guide/udf/python/udf-python-batch#getting-started-with-vectorized-python-udfs
 decrypt_aes._sf_vectorized_input = pandas.DataFrame
 decrypt_aes._sf_max_batch_size = 500000
-
-
-def create_key_aes(user):
-    key = create_aes_key(size=256, tags=["tag1", "tag2"], conf_path=CONFIGURATION)
-    return key
-
-# def test():
-#     data = []
-#     print("reading data")
-#     with open("./data/generated_data_1000000.csv", 'r') as file:
-#         csvreader = csv.reader(file)
-#         for row in csvreader:
-#             data.append(row[1])
-#     print("end reading data")
-#     key = '0d319307-f766-4869-b90a-02096edb9431'
-#     print("creating encrypt request")
-#     print(data[1:11])
-#     clear = [create_aes_gcm_encrypt_request(key_id=key, cleartext=x.encode("utf-8")) for x in data[1:11]]
-#     print("clear: ", clear)
-#     print("encrypt request done")
-#     print("post_operations beginning")
-#     bulk = post_operations(clear, batch_id=0, num_threads=10, threshold=1500, conf_path=CONFIGURATION)
-#     print("end post_operations")
-#     res = [parse_encrypt_response_payload(x.value) for x in bulk]
-# 
-#     print("starting decrypt")
-#     print("created decrypt request")
-#     ctx = [create_aes_gcm_decrypt_request(key_id=key, ciphertext=x) for x in res]
-#     bulk = post_operations(ctx, batch_id=0, num_threads=10, threshold=1500, conf_path=CONFIGURATION)
-#     print("end post operations")
-#     res = [parse_decrypt_response_payload(x.value) for x in bulk]
-#     print(res)
-#     return res
-# 
-# 
-# if __name__ == "__main__":
-#     test()

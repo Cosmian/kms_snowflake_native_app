@@ -9,7 +9,7 @@ from lib.kmip_post import kmip_post
 # ckms sym decrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c -o /tmp/readme.md /tmp/readme.enc
 #
 # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-AES_GCM_DECRYPT = orjson.loads("""
+DECRYPT = orjson.loads("""
 {
   "tag": "Decrypt",
   "type": "Structure",
@@ -38,65 +38,48 @@ AES_GCM_DECRYPT = orjson.loads("""
 }
 """)
 
-# request
-# KEY_ID_OR_TAGS_PATH = ext.parse('$..value[?tag = "UniqueIdentifier"]')
-# DATA_PATH = ext.parse('$..value[?tag = "Data"]')
-# NONCE_PATH = ext.parse('$..value[?tag = "IvCounterNonce"]')
-# TAG_PATH = ext.parse('$..value[?tag = "AuthenticatedEncryptionTag"]')
-
-# response
-# CLEARTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
 
 
-def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytearray, bulk = False) -> dict:
+
+def create_decrypt_request(key_id: str, ciphertext: bytes, is_authenticated_aes = False) -> dict:
     """
     Create an AES GCM decrypt request
 
     Args:
       key_id (str): AES key ID
       ciphertext (bytes): ciphertext to decrypt
+      is_authenticated_aes: whether the ciphertext is an AES concatenation of nonce, data and tag
 
     Returns:
-      str: the RSA encrypt request
+      dict: the Decrypt request
     """
-    req = deepcopy(AES_GCM_DECRYPT)
+    req = deepcopy(DECRYPT)
     hex_string = ciphertext.hex().upper()
     # set the key ID
     req['value'][0]['value'] = key_id
 
-    if bulk:
-        # set the data
-        req['value'][1]['value'] = hex_string
-    else:
+    if is_authenticated_aes:
         # set the nonce
         req['value'][2]['value'] = hex_string[:24]
         # set the data
         req['value'][1]['value'] = hex_string[24:-32]
         # set the tag
         req['value'][3]['value'] = hex_string[-32:]
+    else:
+        # set the data
+        req['value'][1]['value'] = hex_string
 
     return req
 
 
-def parse_decrypt_response(response: requests.Response) -> bytes:
+
+
+def parse_decrypt_response(response: dict) -> bytes:
     """
-    Parse an AES GCM decrypt response
+        Parse a decrypt response JSON
 
     Args:
-      response (str): the AES GCM decrypt response
-
-    Returns:
-      bytes: the cleartext data
-    """
-    return parse_decrypt_response_payload(response.json())
-
-
-def parse_decrypt_response_payload(response: dict) -> bytearray:
-    """
-    Parse an AES GCM decrypt response JSON
-
-    Args:
-      response (dict): the AES GCM decrypt JSON response
+      response (dict): the decrypt JSON response
 
     Returns:
       bytes: the cleartext data
@@ -106,21 +89,6 @@ def parse_decrypt_response_payload(response: dict) -> bytearray:
     for value in values:
         if value['tag'] == 'Data':
             plaintext = value['value']
-    return bytearray.fromhex(plaintext)
+    return bytes.fromhex(plaintext)
 
-def decrypt_with_aes_gcm(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
-    """
-    Decrypt ciphertext with AES GCM
 
-    Args:
-      key_id (str): AES key ID
-      ciphertext (bytes): ciphertext to decrypt
-      conf_path (str): KMS configuration file path
-
-    Returns:
-      bytes: cleartext
-    """
-    req = create_aes_gcm_decrypt_request(key_id, ciphertext)
-    response = kmip_post(orjson.dumps(req), conf_path)
-    cleartext = parse_decrypt_response(response)
-    return cleartext
