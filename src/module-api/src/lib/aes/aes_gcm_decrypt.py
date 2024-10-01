@@ -1,7 +1,7 @@
 import orjson
 import requests
 from copy import deepcopy
-from kmip_post import kmip_post
+from lib.kmip_post import kmip_post
 
 # This JSON was generated using the following CLI command:
 
@@ -48,7 +48,7 @@ AES_GCM_DECRYPT = orjson.loads("""
 # CLEARTEXT_PATH = ext.parse('$..value[?tag = "Data"]')
 
 
-def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
+def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytearray, bulk = False) -> dict:
     """
     Create an AES GCM decrypt request
 
@@ -61,15 +61,19 @@ def create_aes_gcm_decrypt_request(key_id: str, ciphertext: bytes) -> dict:
     """
     req = deepcopy(AES_GCM_DECRYPT)
     hex_string = ciphertext.hex().upper()
-
     # set the key ID
     req['value'][0]['value'] = key_id
-    # set the nonce
-    req['value'][2]['value'] = hex_string[:24]
-    # set the data
-    req['value'][1]['value'] = hex_string[24:-32]
-    # set the tag
-    req['value'][3]['value'] = hex_string[-32:]
+
+    if bulk:
+        # set the data
+        req['value'][1]['value'] = hex_string
+    else:
+        # set the nonce
+        req['value'][2]['value'] = hex_string[:24]
+        # set the data
+        req['value'][1]['value'] = hex_string[24:-32]
+        # set the tag
+        req['value'][3]['value'] = hex_string[-32:]
 
     return req
 
@@ -87,17 +91,22 @@ def parse_decrypt_response(response: requests.Response) -> bytes:
     return parse_decrypt_response_payload(response.json())
 
 
-def parse_decrypt_response_payload(payload: dict) -> bytes:
+def parse_decrypt_response_payload(response: dict) -> bytearray:
     """
     Parse an AES GCM decrypt response JSON
 
     Args:
-      payload (dict): the AES GCM decrypt JSON response
+      response (dict): the AES GCM decrypt JSON response
 
     Returns:
       bytes: the cleartext data
     """
-    return bytes.fromhex(payload[1]['value'])
+    values = response['value']
+    plaintext = ''
+    for value in values:
+        if value['tag'] == 'Data':
+            plaintext = value['value']
+    return bytearray.fromhex(plaintext)
 
 def decrypt_with_aes_gcm(key_id: str, ciphertext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
     """

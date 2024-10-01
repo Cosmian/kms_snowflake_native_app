@@ -13,7 +13,6 @@ from lib.aes.aes_gcm_decrypt import create_aes_gcm_decrypt_request, \
 from lib.aes.aes_gcm_encrypt import create_aes_gcm_encrypt_request, \
     parse_encrypt_response_payload
 from lib.aes.create_aes_key import create_aes_key
-from lib.bulk import post_operations
 from lib.bulk_data import BulkData
 from lib.client_configuration import ClientConfiguration
 from lib.kmip_post import kmip_post
@@ -21,9 +20,10 @@ from lib.kmip_post import kmip_post
 snowflake_logger = logging.getLogger("kms_decrypt")
 
 # configuration = 'kms.json'
-CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
-NUM_THREADS = 5
-THRESHOLD = 100000
+# CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
+CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
+NUM_THREADS = 8
+THRESHOLD = 200000
 
 
 def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
@@ -35,6 +35,7 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 
     key_ids = data[0]
     plaintexts = data[1]
+    # We do not use the bulk data encoding if there is only one plaintext
     no_bulk_data_encoding = len(plaintexts) == 1
 
     t_start = time.perf_counter()
@@ -60,6 +61,7 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
             ]
     t_prepare_requests = time.perf_counter() - t_start
 
+    # Post the operations
     t_start = time.perf_counter()
     if len(requests) == 1:
         results: List[dict] = [kmip_post(configuration, requests[0])]
@@ -71,10 +73,13 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 
     # Parse the response
     t_start = time.perf_counter()
+    ciphertexts=[]
     if no_bulk_data_encoding:
-        ciphertexts = [parse_encrypt_response_payload(results[0])]
+        ciphertexts.append(parse_encrypt_response_payload(results[0]))
     else:
-        ciphertexts = [parse_encrypt_response_payload(r) for r in results]
+        for r in results:
+            ct = BulkData.deserialize(parse_encrypt_response_payload(r)).data
+            ciphertexts.extend(ct)
     data_frame = pandas.Series(ciphertexts)
     t_parse_encrypt_response_payload = time.perf_counter() - t_start
 
@@ -95,44 +100,67 @@ def encrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
 # Using this form avoids the decorator syntax and importing the _snowflake module
 # see https://docs.snowflake.com/en/developer-guide/udf/python/udf-python-batch#getting-started-with-vectorized-python-udfs
 encrypt_aes._sf_vectorized_input = pandas.DataFrame
-# Set the maximum batch size to 20,000
-encrypt_aes._sf_max_batch_size = 20000
+# Set the maximum batch size 
+encrypt_aes._sf_max_batch_size = 500000
 
 
 def decrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
     """
     snowflake python udf to decrypt data using AES GCM
     """
+    configuration: ClientConfiguration = ClientConfiguration.from_json(CONFIGURATION)
     batch_id = random.randint(0, 10000)
 
     key_ids = data[0]
     ciphertexts = data[1]
+    # We do not use the bulk data encoding if there is only one ciphertext
+    no_bulk_data_encoding = len(ciphertexts) == 1
 
-    # Create the decrypt request array
-    decryptions = []
     t_start = time.perf_counter()
-    for i in range(0, len(data)):
-        enc = create_aes_gcm_decrypt_request(key_id=key_ids[i], ciphertext=ciphertexts[i])
-        decryptions.append(enc)
-    t_create_aes_gcm_decrypt_request = time.perf_counter() - t_start
+    if no_bulk_data_encoding:
+        requests = [create_aes_gcm_decrypt_request(key_id=key_ids[0], ciphertext=ciphertexts[0])]
+    else:
+        if len(ciphertexts) <= THRESHOLD:
+            requests = [
+                create_aes_gcm_decrypt_request(
+                    key_id=key_ids[0],
+                    ciphertext=BulkData(ciphertexts).serialize(),
+                    bulk=True
+                )
+            ]
+        else:
+            # Split the ciphertexts into chunks
+            k, m = divmod(len(ciphertexts), NUM_THREADS)
+            requests = [
+                create_aes_gcm_decrypt_request(
+                    key_id=key_ids[0],
+                    ciphertext=BulkData(ciphertexts[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]).serialize(),
+                    bulk=True
+                )
+                for i in range(NUM_THREADS)
+            ]
+    t_prepare_requests = time.perf_counter() - t_start
 
     # Post the operations
     t_start = time.perf_counter()
-    bulk = post_operations(
-        conf=json.loads(CONFIGURATION),
-        operations=decryptions,
-        batch_id=batch_id,
-        num_threads=NUM_THREADS,
-        threshold=THRESHOLD)
+    if len(requests) == 1:
+        results: List[dict] = [kmip_post(configuration, requests[0])]
+    else:
+        # Post the operations in parallel
+        with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+            results: List[dict] = list(executor.map(partial(kmip_post, configuration), requests))
     t_post_operations = time.perf_counter() - t_start
 
     # Parse the response
-    results = []
     t_start = time.perf_counter()
-    for b in bulk:
-        assert b.operation == 'Decrypt'
-        res = parse_decrypt_response_payload(b.value)
-        results.append(res.decode('utf-8'))
+    ciphertexts=[]
+    if no_bulk_data_encoding:
+        ciphertexts.append(parse_decrypt_response_payload(results[0]))
+    else:
+        for r in results:
+            ct = BulkData.deserialize(parse_decrypt_response_payload(r)).data
+            ciphertexts.extend(ct)
+    data_frame = pandas.Series(ciphertexts)
     t_parse_decrypt_response_payload = time.perf_counter() - t_start
 
     logger.debug(
@@ -140,26 +168,24 @@ def decrypt_aes(data: pandas.DataFrame, logger=snowflake_logger):
         extra={
             "id": batch_id,
             "size": len(data[1]),
-            "request": t_create_aes_gcm_decrypt_request,
+            "request": t_prepare_requests,
             "post": t_post_operations,
             "response": t_parse_decrypt_response_payload
         }
     )
-    return results
+    return data_frame
 
 
 # Set this function to be a snowflake vectorized function
 # Using this form avoids the decorator syntax and importing the _snowflake module
 # see https://docs.snowflake.com/en/developer-guide/udf/python/udf-python-batch#getting-started-with-vectorized-python-udfs
 decrypt_aes._sf_vectorized_input = pandas.DataFrame
-# Set the maximum batch size to 20,000
-decrypt_aes._sf_max_batch_size = 20000
+decrypt_aes._sf_max_batch_size = 500000
 
 
 def create_key_aes(user):
     key = create_aes_key(size=256, tags=["tag1", "tag2"], conf_path=CONFIGURATION)
     return key
-
 
 # def test():
 #     data = []

@@ -5,46 +5,59 @@ import logging
 
 from cosmian_kms import encrypt_aes, decrypt_aes, snowflake_logger
 
-# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s) | id=%(id)s | size=%(size)s | request=%(request)s | post=%(post)s | response=%(response)s",
+    datefmt = "%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
+slog = logging.LoggerAdapter(logger, {
+    "id": "",
+    "size": 0,
+    "request": 0,
+    "post": 0,
+    "response": 0
+})
+
 
 def generate_random_string(length):
     letters = string.ascii_letters + string.digits
     return ''.join(random.choice(letters) for _ in range(length))
 
 
-def test_encrypt():
-    
+def generate_random_bytearray(length) -> bytearray:
+    return bytearray(random.getrandbits(8) for _ in range(length))
+
 
 def test_performance():
-    """
-    Test the performance of the encrypting and decrypting UDF
-    The perf stats will be written to the log
-    """
     key_id = '0d319307-f766-4869-b90a-02096edb9431'
-    batch_size = 100000
-    snowflake_logger.info(f"Testing performance with batch size {batch_size}")
+    batch_size = 4000000
+    slog.info(f"Testing performance with batch size {batch_size}")
 
     # Generate a random batch of data
     keys: list[str] = []
     for i in range(batch_size):
         keys.append(key_id)
-    cleartexts: list[str] = []
+    plaintexts: list[bytearray] = []
     for i in range(batch_size):
-        cleartexts.append(generate_random_string(64))
-    data_frame = pd.DataFrame({0: keys, 1: cleartexts})
+        plaintexts.append(generate_random_bytearray(64))
+    data_frame = pd.DataFrame({0: keys, 1: plaintexts})
+    slog.info(f"Generated random data")
 
     # Encrypt the data
-    encryptions = encrypt_aes(data_frame,logger)
-    
+    encryptions = encrypt_aes(data_frame, logger)
+    assert len(encryptions) == batch_size
+    for v in encryptions.values:
+        assert len(v) == 64 + 12 + 16
+
     # decrypt the data
-    data_frame = pd.DataFrame({0:keys, 1:encryptions.values})
-    decryptions = decrypt_aes(data_frame,logger)
-    
+    data_frame = pd.DataFrame({0: keys, 1: encryptions.values})
+    decryptions = decrypt_aes(data_frame, logger)
+
     # Check that the decrypted data is the same as the original data
     for i in range(batch_size):
-        assert cleartexts[i] == decryptions[i]
-        
+        assert plaintexts[i] == decryptions[i]
+
 
 if __name__ == '__main__':
     test_performance()

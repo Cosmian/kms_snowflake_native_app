@@ -4,10 +4,10 @@ import orjson
 from typing import List
 import requests
 from jsonpath_ng import ext
-from kmip_post import kmip_post
+from lib.kmip_post import kmip_post
 import logging
 import time
-from client_configuration import ClientConfiguration
+from lib.client_configuration import ClientConfiguration
 
 logger = logging.getLogger("kms_decrypt")
 

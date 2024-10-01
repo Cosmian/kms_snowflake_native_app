@@ -1,7 +1,6 @@
 import json
-from typing import Any
 import requests
-from client_configuration import ClientConfiguration
+from lib.client_configuration import ClientConfiguration
 import logging
 
 logger = logging.getLogger("kms_decrypt")
@@ -26,7 +25,7 @@ def kmip_post(
         "Content-Type": "application/json",
     }
 
-    if "kms_access_token" in configuration:
+    if configuration.kms_access_token is not None:
         headers["Authorization"] = "Bearer " + configuration.kms_access_token
 
     res = requests.post(kms_server_url, headers=headers, data=json.dumps(operation))

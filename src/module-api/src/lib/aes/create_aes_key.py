@@ -3,7 +3,7 @@ from typing import List
 from jsonpath_ng import ext
 from requests import Response
 
-from kmip_post import kmip_post
+from lib.kmip_post import kmip_post
 
 
 # This JSON was generated using the following CLI command:

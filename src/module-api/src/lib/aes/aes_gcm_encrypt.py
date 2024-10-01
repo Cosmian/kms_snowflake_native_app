@@ -1,7 +1,7 @@
 import orjson
 from copy import deepcopy
 import requests
-from ..kmip_post import kmip_post
+from lib.kmip_post import kmip_post
 
 # This JSON was generated using the following CLI command:
 #
@@ -76,20 +76,28 @@ def parse_encrypt_response(response: requests.Response) -> bytes:
     return parse_encrypt_response_payload(response.json())
 
 
-def parse_encrypt_response_payload(payload: dict) -> bytes:
+def parse_encrypt_response_payload(response: dict) -> bytearray:
     """
     Parse an AES encrypt response JSON payload
     Args:
-        payload: the AES GCM encrypt response
+        response: the AES GCM encrypt response
 
     Returns:
         bytes: the concatenated nonce, ciphertext and tag
 
     """
-    ciphertext = payload[1]['value']
-    nonce = payload[2]['value']
-    tag = payload[3]['value']
-    return bytes.fromhex(nonce + ciphertext + tag)
+    values = response['value']
+    nonce = ''
+    ciphertext = ''
+    tag = ''
+    for value in values:
+        if value['tag'] == 'Data':
+            ciphertext = value['value']
+        elif value['tag'] == 'IvCounterNonce':
+            nonce = value['value']
+        elif value['tag'] == 'AuthenticatedEncryptionTag':
+            tag = value['value']
+    return bytearray.fromhex(nonce+ciphertext+tag)
 
 
 def encrypt_with_aes_gcm(key_id: str, cleartext: bytes, conf_path: str = "~/.cosmian/kms.json") -> bytes:
