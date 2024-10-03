@@ -7,13 +7,13 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from lib.bulk_data import BulkData
-from lib.client_configuration import ClientConfiguration
-from lib.kmip.decrypt import create_decrypt_request, \
+from .lib.bulk_data import BulkData
+from .lib.client_configuration import ClientConfiguration
+from .lib.kmip.decrypt import create_decrypt_request, \
     parse_decrypt_response
-from lib.kmip.encrypt import create_encrypt_request, \
+from .lib.kmip.encrypt import create_encrypt_request, \
     parse_encrypt_response
-from lib.kmip_post import kmip_post
+from .lib.kmip_post import kmip_post
 
 snowflake_logger = logging.getLogger("kms_decrypt")
 slog = logging.LoggerAdapter(snowflake_logger, {
@@ -25,9 +25,10 @@ slog = logging.LoggerAdapter(snowflake_logger, {
 
 # CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
 # CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
-CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
+# CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
+CONFIGURATION = '{"kms_server_url": "https://kms-snowflake-test.cosmian.dev"}'
 # the heuristic seems to be 5 times the number of cores for 64 bytes plaintexts
-NUM_THREADS = 55
+NUM_THREADS = 40
 THRESHOLD = 800000
 
 

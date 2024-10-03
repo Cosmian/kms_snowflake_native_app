@@ -9,13 +9,16 @@ version:
 artifacts:
   setup_script: setup_script.sql
   extension_code: true
+  readme: README.md
+  
 configuration:
   trace_level: OFF
   log_level: DEBUG
+  
 references:
   - external_access_reference:
-      label: "Cosmian Access Integration"
-      description: "This EAI is required to access the Cosmian's KMS API"
+      label: "Cosmian KMS Integration"
+      description: "This EAI is required to access the Cosmian KMS API"
       privileges:
         - USAGE
       object_type: EXTERNAL ACCESS INTEGRATION

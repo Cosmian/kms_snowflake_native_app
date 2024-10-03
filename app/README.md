@@ -12,8 +12,12 @@ Configure it:
 
 Data Products -> Apps -> Select App -> Click Shield -> Security (Shield icon) -> Connections -> Review -> Accept
 
-## SQL Usage
+## Enbling the external connection
 
+Got to Data Products -> Apps
+Select the `...` and `View Details`
+
+In connections, review and approve the connection.
 
 ### Script Example
 The following script describes an example of how to use the Cosmian KMS native app
