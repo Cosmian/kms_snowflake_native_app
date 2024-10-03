@@ -58,7 +58,7 @@ CREATE OR REPLACE PROCEDURE core.create_eai_objects()
 AS
 $$
 BEGIN
-    CREATE OR REPLACE FUNCTION core.kms_decrypt_aes(key VARCHAR, ciphertext BINARY)
+    CREATE OR REPLACE FUNCTION core.decrypt_aes(key VARCHAR, ciphertext BINARY)
         RETURNS BINARY
         LANGUAGE PYTHON
         IMMUTABLE
@@ -83,9 +83,9 @@ BEGIN
         HANDLER = 'cosmian_kms.decrypt_aes'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
-    GRANT USAGE ON FUNCTION core.kms_decrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+    GRANT USAGE ON FUNCTION core.decrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
 
-    CREATE FUNCTION IF NOT EXISTS core.kms_encrypt_aes(key VARCHAR, plaintext BINARY)
+    CREATE FUNCTION IF NOT EXISTS core.encrypt_aes(key VARCHAR, plaintext BINARY)
         RETURNS BINARY
         LANGUAGE PYTHON
         VOLATILE 
@@ -110,7 +110,7 @@ BEGIN
         HANDLER = 'cosmian_kms.encrypt_aes'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
-    GRANT USAGE ON FUNCTION core.kms_encrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+    GRANT USAGE ON FUNCTION core.encrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
 
     RETURN 'SUCCESS';
 END;

@@ -24,6 +24,8 @@ slog = logging.LoggerAdapter(snowflake_logger, {
     "response": 0
 })
 
+# TODO: These values need to be de-harcoded via configuration
+
 # CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
 # CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
 # CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
@@ -63,7 +65,6 @@ def encrypt_aes(data: pd.DataFrame):
             split_series = np.array_split(plaintexts, NUM_THREADS)
             requests = [create_encrypt_request(key_id=key_id, cleartext=BulkData(chunk).serialize()) for chunk in
                         split_series]
-            # requests = [create_encrypt_request(key_id=key_id, cleartext=BulkData(split_series[i]).serialize()) for i in range(NUM_THREADS)]
     t_prepare_requests = time.perf_counter() - t_start
 
     # Post the operations
