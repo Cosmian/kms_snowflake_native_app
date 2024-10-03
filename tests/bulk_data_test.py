@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.testing as npt
-from lib.bulk_data import BulkData
+from bulk_data import BulkData
 import logging
 import time
 import random

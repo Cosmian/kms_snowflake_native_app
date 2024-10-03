@@ -1,7 +1,5 @@
 import orjson
 from copy import deepcopy
-import requests
-from lib.kmip_post import kmip_post
 
 # This JSON was generated using the following CLI command:
 #
