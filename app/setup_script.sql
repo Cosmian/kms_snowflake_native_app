@@ -78,14 +78,15 @@ BEGIN
             'pandas',
             'requests',
             'snowflake-snowpark-python',
-            'typing'
+            'typing',
+            'httpx'
         )
         HANDLER = 'cosmian_kms.decrypt_aes'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
     GRANT USAGE ON FUNCTION core.decrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
 
-    CREATE FUNCTION IF NOT EXISTS core.encrypt_aes(key VARCHAR, plaintext BINARY)
+    CREATE OR REPLACE FUNCTION core.encrypt_aes(key VARCHAR, plaintext BINARY)
         RETURNS BINARY
         LANGUAGE PYTHON
         VOLATILE 
@@ -105,12 +106,42 @@ BEGIN
             'pandas',
             'requests',
             'snowflake-snowpark-python',
-            'typing'
+            'typing',
+            'httpx'
         )
         HANDLER = 'cosmian_kms.encrypt_aes'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
     GRANT USAGE ON FUNCTION core.encrypt_aes(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+
+    CREATE OR REPLACE FUNCTION core.decrypt_aes_e(key VARCHAR, ciphertext1 BINARY, ciphertext2 BINARY)
+        RETURNS TABLE(plaintext1 BINARY, plaintext2 BINARY) 
+        LANGUAGE PYTHON
+        VOLATILE
+        RUNTIME_VERSION = 3.11
+        IMPORTS =(
+            '/module-api/cosmian_kms.py',
+            '/module-api/bulk_data.py',
+            '/module-api/client_configuration.py',
+            '/module-api/create_aes_key.py',
+            '/module-api/kmip_decrypt.py',
+            '/module-api/kmip_encrypt.py',
+            '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'httpx'
+        )
+        HANDLER = 'cosmian_kms.DecryptAES'
+        EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
+
+    GRANT USAGE ON FUNCTION core.decrypt_aes_e(VARCHAR,BINARY,BINARY) TO APPLICATION ROLE app_public;
+
 
     RETURN 'SUCCESS';
 END;
