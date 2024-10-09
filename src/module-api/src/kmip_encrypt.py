@@ -1,65 +1,102 @@
 import orjson
-from copy import deepcopy
 
-# This JSON was generated using the following CLI command:
-#
-# RUST_LOG="cosmian_kms_client::kms_rest_client=debug" \
-# ckms rsa encrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c cleartext.txt -o ciphertext.enc
-
-# Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-ENCRYPT = orjson.loads("""
-{
-  "tag": "Encrypt",
-  "type": "Structure",
-  "value": [
-    {
-      "tag": "UniqueIdentifier",
-      "type": "TextString",
-      "value": "e4d41132-8363-4e8a-9758-bdea38e87f6d"
-    },
-    {
-      "tag": "Data",
-      "type": "ByteString",
-      "value": "2D2D2D0A746974...36F6D3E5C3E0A"
-    }
-  ]
-}
-""")
+from cosmian_kms import Algorithm
 
 
-
-def create_encrypt_request(key_id: str, cleartext: bytes) -> dict:
+def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, nonce=None) -> dict:
     """
-    Create an AES GCM encrypt request
+    Create a symmetric encrypt request
 
     Args:
-      key_id (str): AES key ID
-      cleartext (bytes): data to encrypt
+        key_id (str): AES key ID
+        plaintext (bytes): data to encrypt
+        algorithm (Algorithm): the algorithm to use
+        nonce (bytes): the nonce to use or None for a random nonce or XTS
 
     Returns:
       str: the AES encrypt request
     """
-    req = deepcopy(ENCRYPT)
 
-    # set the key ID
-    req['value'][0]['value'] = key_id
-    # KEY_ID_OR_TAGS_PATH.find(req)[0].value['value'] = key_id
+    # Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
+    # to see how to generate the JSON payload
 
-    # set the data
-    req['value'][1]['value'] = cleartext.hex().upper()
-    # DATA_PATH.find(req)[0].value['value'] = data.hex().upper()
+    if nonce is None and algorithm == Algorithm.AES_GCM_SIV:
+        raise ValueError("You should supply a nonce for AES_GCM_SIV")
 
-    return req
+    if nonce is not None:
+        nonce_block = f"""
+        {{
+          "tag": "IvCounterNonce",
+          "type": "ByteString",
+          "value": {nonce.hex().upper()}
+        }}
+        """
+    else:
+        nonce_block = ""
+
+    if algorithm == Algorithm.AES_GCM:
+        alg = "AES"
+        block_cipher_mode = "GCM"
+    elif algorithm == Algorithm.AES_GCM_SIV:
+        alg = "AES"
+        block_cipher_mode = "GCMSIV"
+    elif algorithm == Algorithm.AES_XTS:
+        alg = "AES"
+        block_cipher_mode = "XTS"
+    elif algorithm == Algorithm.CHACHA20_POLY1305:
+        alg = "ChaCha20"
+        block_cipher_mode = "Poly1305"
+    else:
+        raise ValueError(f"Unsupported algorithm {algorithm}")
+
+    request = orjson.loads(
+        f"""
+        {{
+            "tag": "Encrypt",
+            "type": "Structure",
+            "value": [
+                {{
+                    "tag": "UniqueIdentifier",
+                    "type": "TextString",
+                    "value": {key_id}
+                }},
+                {{
+                    "tag": "CryptographicParameters",
+                    "type": "Structure",
+                    "value": [
+                        {{
+                            "tag": "BlockCipherMode",
+                            "type": "Enumeration",
+                            "value": {block_cipher_mode}
+                        }},
+                        {{
+                            "tag": "CryptographicAlgorithm",
+                            "type": "Enumeration",
+                            "value": {alg}
+                        }}
+                    ]
+                }},
+                {{
+                    "tag": "Data",
+                    "type": "ByteString",
+                    "value": {plaintext.hex().upper()}
+                }},
+            {nonce_block}
+            ]
+        }}
+        """
+    )
+    return request
 
 
-def parse_encrypt_response(response: dict) -> bytes:
+def parse_encrypt_response(response: dict) -> (str, str):
     """
     Parse an AES encrypt response JSON payload
     Args:
         response: the AES GCM encrypt response
 
     Returns:
-        bytes: the concatenated nonce, ciphertext and tag
+        a tuple with the (nonce, ciphertext and tag) as hex strings
 
     """
     values = response['value']
@@ -73,5 +110,4 @@ def parse_encrypt_response(response: dict) -> bytes:
             nonce = value['value']
         elif value['tag'] == 'AuthenticatedEncryptionTag':
             tag = value['value']
-    return bytes.fromhex(nonce+ciphertext+tag)
-
+    return nonce, ciphertext + tag

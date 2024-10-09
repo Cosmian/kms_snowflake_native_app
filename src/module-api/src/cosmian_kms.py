@@ -16,6 +16,13 @@ from kmip_decrypt import create_decrypt_request, \
 from kmip_encrypt import create_encrypt_request, \
     parse_encrypt_response
 from kmip_post import kmip_post
+from enum import Enum
+
+class Algorithm(Enum):
+    AES_GCM = 1
+    AES_GCM_SIV = 2
+    AES_XTS = 3
+    CHACHA20_POLY1305 = 4
 
 snowflake_logger = logging.getLogger("kms_decrypt")
 logger = snowflake_logger
@@ -38,23 +45,40 @@ THRESHOLD = 100000
 session = requests.Session()
 
 
-def encrypt_aes(data: pd.DataFrame):
+def encrypt_aes_gcm(data: pd.DataFrame):
+    encrypt(data, Algorithm.AES_GCM)
+
+def encrypt_aes_gcm_siv(data: pd.DataFrame):
+    encrypt(data, Algorithm.AES_GCM_SIV)
+    
+def encrypt_aes_xts(data: pd.DataFrame):
+    encrypt(data, Algorithm.AES_XTS)
+    
+def encrypt_chacha20_poly1305(data: pd.DataFrame):    
+    encrypt(data, Algorithm.CHACHA20_POLY1305)
+
+def encrypt(data: pd.DataFrame, algorithm: Algorithm):
     """
     snowflake python udf to encrypt data using AES GCM
     """
     configuration: ClientConfiguration = ClientConfiguration.from_json(CONFIGURATION)
 
-    # These is a Pandas Series
+    # This is a Pandas Series
     plaintexts = data[1]
     # same key for everyone
     key_id = data[0][0]
+    
+    if len(data) > 2:
+        nonce = data[2][0]
+    else:
+        nonce = None
 
     # We do not u®se the bulk data encoding if there is only one plaintext
     no_bulk_data_encoding = len(plaintexts) == 1
 
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
-        requests = [create_encrypt_request(key_id=key_id, cleartext=plaintexts[0])]
+        requests = [create_encrypt_request(key_id=key_id, plaintext=plaintexts[0], algorithm=algorithm)]
     else:
         if len(plaintexts) <= THRESHOLD:
             requests = [
@@ -107,8 +131,10 @@ def encrypt_aes(data: pd.DataFrame):
 # Set this function to be a snowflake vectorized function
 # Using this form avoids the decorator syntax and importing the _snowflake module
 # see https://docs.snowflake.com/en/developer-guide/udf/python/udf-python-batch#getting-started-with-vectorized-python-udfs
-encrypt_aes._sf_vectorized_input = pd.DataFrame
-
+encrypt_aes_gcm._sf_vectorized_input = pd.DataFrame
+encrypt_aes_gcm_siv._sf_vectorized_input = pd.DataFrame
+encrypt_aes_xts._sf_vectorized_input = pd.DataFrame
+encrypt_chacha20_poly1305._sf_vectorized_input = pd.DataFrame
 
 # Set the maximum batch size 
 # encrypt_aes._sf_max_batch_size = 5000000
@@ -266,3 +292,21 @@ class DecryptAES:
 # Set this function to be a snowflake vectorized function
 # see https://docs.snowflake.com/en/developer-guide/udf/python/udf-python-tabular-vectorized
 DecryptAES.end_partition._sf_vectorized_input = pd.DataFrame
+
+
+def string_to_padded_hex(input_string: str) -> str:
+    # Convert string to bytes
+    byte_array = input_string.encode('utf-8')
+
+    # Pad the byte array to 12 bytes
+    padded_byte_array = byte_array.ljust(12, b'\0')
+
+    # Convert the padded byte array to a hex string
+    hex_string = padded_byte_array.hex().upper()
+
+    return hex_string
+
+# Example usage
+input_string = "Hello"
+hex_string = string_to_padded_hex(input_string)
+print(hex_string)  #
