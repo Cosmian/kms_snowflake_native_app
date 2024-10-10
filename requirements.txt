@@ -21,6 +21,7 @@ pyproject-api==1.6.1
 pytest==8.2.2
 pytest-cov==5.0.0
 python-dateutil==2.9.0.post0
+xxhash==2.0.2
 pytz==2024.2
 requests==2.32.3
 six==1.16.0

@@ -1,6 +1,7 @@
 from enum import Enum
 
 
+
 class Algorithm(Enum):
     AES_GCM = 1
     AES_GCM_SIV = 2
