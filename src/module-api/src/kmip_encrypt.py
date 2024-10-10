@@ -1,17 +1,18 @@
+from typing import Optional
+
 import orjson
+from shared import nonce_block, Algorithm
 
-from cosmian_kms import Algorithm
 
-
-def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, nonce=None) -> dict:
+def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, nonce=Optional[bytes]) -> dict:
     """
-    Create a symmetric encrypt request
+    Create a symmetric Encrypt request
 
     Args:
         key_id (str): AES key ID
         plaintext (bytes): data to encrypt
         algorithm (Algorithm): the algorithm to use
-        nonce (bytes): the nonce to use or None for a random nonce or XTS
+        nonce (bytes): the nonce to use or None for a random nonce
 
     Returns:
       str: the AES encrypt request
@@ -24,15 +25,9 @@ def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, n
         raise ValueError("You should supply a nonce for AES_GCM_SIV")
 
     if nonce is not None:
-        nonce_block = f"""
-        {{
-          "tag": "IvCounterNonce",
-          "type": "ByteString",
-          "value": {nonce.hex().upper()}
-        }}
-        """
+        nonce_b = nonce_block(nonce)
     else:
-        nonce_block = ""
+        nonce_b = ""
 
     if algorithm == Algorithm.AES_GCM:
         alg = "AES"
@@ -49,8 +44,8 @@ def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, n
     else:
         raise ValueError(f"Unsupported algorithm {algorithm}")
 
-    request = orjson.loads(
-        f"""
+    
+    r = f"""
         {{
             "tag": "Encrypt",
             "type": "Structure",
@@ -58,7 +53,7 @@ def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, n
                 {{
                     "tag": "UniqueIdentifier",
                     "type": "TextString",
-                    "value": {key_id}
+                    "value": "{key_id}"
                 }},
                 {{
                     "tag": "CryptographicParameters",
@@ -67,29 +62,29 @@ def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, n
                         {{
                             "tag": "BlockCipherMode",
                             "type": "Enumeration",
-                            "value": {block_cipher_mode}
+                            "value": "{block_cipher_mode}"
                         }},
                         {{
                             "tag": "CryptographicAlgorithm",
                             "type": "Enumeration",
-                            "value": {alg}
+                            "value": "{alg}"
                         }}
                     ]
                 }},
                 {{
                     "tag": "Data",
                     "type": "ByteString",
-                    "value": {plaintext.hex().upper()}
-                }},
-            {nonce_block}
+                    "value": "{plaintext.hex().upper()}"
+                }}
+            {nonce_b}
             ]
         }}
         """
-    )
+    request = orjson.loads(r)
     return request
 
 
-def parse_encrypt_response(response: dict) -> (str, str):
+def parse_encrypt_response(response: dict) -> bytes:
     """
     Parse an AES encrypt response JSON payload
     Args:
@@ -110,4 +105,4 @@ def parse_encrypt_response(response: dict) -> (str, str):
             nonce = value['value']
         elif value['tag'] == 'AuthenticatedEncryptionTag':
             tag = value['value']
-    return nonce, ciphertext + tag
+    return bytes.fromhex(nonce + ciphertext + tag)

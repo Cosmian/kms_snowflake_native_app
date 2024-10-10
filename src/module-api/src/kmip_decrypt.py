@@ -1,75 +1,118 @@
+from typing import Optional
+
 import orjson
-from copy import deepcopy
 
-# This JSON was generated using the following CLI command:
-
-# RUST_LOG="cosmian_kms_client::kms_rest_client=debug" \
-# ckms sym decrypt -k 25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c -o /tmp/readme.md /tmp/readme.enc
-#
-# Check https://docs.cosmian.com/cosmian_key_management_system/kmip_2_1/json_ttlv_api/ for details
-DECRYPT = orjson.loads("""
-{
-  "tag": "Decrypt",
-  "type": "Structure",
-  "value": [
-    {
-      "tag": "UniqueIdentifier",
-      "type": "TextString",
-      "value": "25b0b9e6-fd68-4d2f-bda8-ca4ae5b9bc3c"
-    },
-    {
-      "tag": "Data",
-      "type": "ByteString",
-      "value": "7292EFE...3913"
-    },
-    {
-      "tag": "IvCounterNonce",
-      "type": "ByteString",
-      "value": "4A5A36F173C600602446AAAB"
-    },
-    {
-      "tag": "AuthenticatedEncryptionTag",
-      "type": "ByteString",
-      "value": "391B60222172A025CEA0007479B432EE"
-    }
-  ]
-}
-""")
+from bulk_data import BulkData
+from shared import nonce_block, mac_block, Algorithm
 
 
-
-
-def create_decrypt_request(key_id: str, ciphertext: bytes, is_authenticated_aes = False) -> dict:
+def create_decrypt_request(
+        key_id: str,
+        ciphertext: bytes | BulkData,
+        algorithm: Algorithm,
+        nonce: Optional[bytes],
+) -> dict:
     """
-    Create an AES GCM decrypt request
+    Create a symmetric Decrypt request
 
     Args:
-      key_id (str): AES key ID
-      ciphertext (bytes): ciphertext to decrypt
-      is_authenticated_aes: whether the ciphertext is an AES concatenation of nonce, data and tag
+        key_id (str): AES key ID
+        ciphertext (bytes): data to decrypt
+        algorithm (Algorithm): the algorithm to use
+        nonce (bytes): the nonce to use for AES_GCM_SIV (the nonce is expected to be in the cipher text otherwise)
 
     Returns:
-      dict: the Decrypt request
+      str: the AES encrypt request
     """
-    req = deepcopy(DECRYPT)
-    hex_string = ciphertext.hex().upper()
-    # set the key ID
-    req['value'][0]['value'] = key_id
+    
+    is_bulk_data = isinstance(ciphertext, BulkData)
 
-    if is_authenticated_aes:
-        # set the nonce
-        req['value'][2]['value'] = hex_string[:24]
-        # set the data
-        req['value'][1]['value'] = hex_string[24:-32]
-        # set the tag
-        req['value'][3]['value'] = hex_string[-32:]
+    if algorithm == Algorithm.AES_GCM:
+        alg = "AES"
+        block_cipher_mode = "GCM"
+        if is_bulk_data:
+            data = ciphertext.serialize()
+            nonce_b = ""
+            mac_b = ""
+        else:
+            nonce_b = nonce_block(ciphertext[:12])
+            data = ciphertext[12:-16]
+            mac_b = mac_block(ciphertext[-16:])
+    elif algorithm == Algorithm.AES_GCM_SIV:
+        alg = "AES"
+        block_cipher_mode = "GCMSIV"
+        if is_bulk_data:
+            data = ciphertext.serialize()
+            nonce_b = ""
+            mac_b = ""
+        else:
+            if nonce is None:
+                raise ValueError("You should supply a nonce for AES_GCM_SIV")
+            nonce_b = nonce_block(nonce)
+            data = ciphertext[:-16]
+            mac_b = mac_block(ciphertext[-16:])
+    elif algorithm == Algorithm.AES_XTS:
+        alg = "AES"
+        block_cipher_mode = "XTS"
+        mac_b = ""
+        if is_bulk_data:
+            data = ciphertext.serialize()
+            nonce_b = ""
+        else:
+            data = ciphertext[12:]
+            nonce_b = nonce_block(ciphertext[:12])
+    elif algorithm == Algorithm.CHACHA20_POLY1305:
+        alg = "ChaCha20"
+        block_cipher_mode = "Poly1305"
+        if is_bulk_data:
+            data = ciphertext.serialize()
+            nonce_b = ""
+            mac_b = ""
+        else:
+            nonce_b = nonce_block(ciphertext[:12])
+            data = ciphertext[12:-16]
+            mac_b = mac_block(ciphertext[-16:])
     else:
-        # set the data
-        req['value'][1]['value'] = hex_string
-
-    return req
-
-
+        raise ValueError(f"Unsupported algorithm {algorithm}")
+    
+    r=f"""
+        {{
+            "tag": "Decrypt",
+            "type": "Structure",
+            "value": [
+                {{
+                    "tag": "UniqueIdentifier",
+                    "type": "TextString",
+                    "value": "{key_id}"
+                }},
+                {{
+                    "tag": "CryptographicParameters",
+                    "type": "Structure",
+                    "value": [
+                        {{
+                            "tag": "BlockCipherMode",
+                            "type": "Enumeration",
+                            "value": "{block_cipher_mode}"
+                        }},
+                        {{
+                            "tag": "CryptographicAlgorithm",
+                            "type": "Enumeration",
+                            "value": "{alg}"
+                        }}
+                    ]
+                }},
+                {{
+                    "tag": "Data",
+                    "type": "ByteString",
+                    "value": "{data.hex().upper()}"
+                }}
+            {nonce_b}
+            {mac_b}
+            ]
+        }}
+        """
+    request = orjson.loads(r)
+    return request
 
 
 def parse_decrypt_response(response: dict) -> bytes:
