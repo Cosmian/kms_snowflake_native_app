@@ -11,7 +11,6 @@ idna==3.7
 iniconfig==2.0.0
 jsonpath-ng==1.6.1
 leb128==1.0.8
-numpy==2.0.2
 orjson==3.10.7
 packaging==24.1
 pandas==2.2.3
@@ -28,5 +27,5 @@ six==1.16.0
 tomli==2.0.1
 tox==4.15.1
 tzdata==2024.2
-urllib3==2.2.1
+urllib3==2.2.2
 virtualenv==20.26.2

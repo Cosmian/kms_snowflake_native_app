@@ -5,7 +5,6 @@ from functools import partial
 from typing import List, Optional
 import math
 
-import numpy as np
 import pandas as pd
 import requests
 
