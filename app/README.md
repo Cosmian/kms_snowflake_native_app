@@ -1,13 +1,25 @@
 # Cosmian KMS Integration
 
-This Snowflake Native Application integrates snowflake to the Cosmian KMS.
 
-It exposes two User Defined Functions:
+This native app lets you perform encryption and decryption operations in snowflake queries using Cosmian KMS.
 
-- `cosmian_kms_app.core.encrypt_aes`: Encrypts a binary value using AES GCM.
-- `cosmian_kms_app.core.decrypt_aes`: Decrypts a binary value using AES GCM.
+Example: query the CUSTOMERS table where the customer `name` is encrypted in the database and you want to decrypt it in
+the query.
 
-These user defined functions are vectorized and can be used in SQL queries (see example usage below).
+```sql
+SELECT id, decrypt_aes_gcm($KEY_ID, name) AS name
+FROM CUSTOMERS;
+```
+
+where `$KEY_ID` is the AES key identifier in Cosmian KMS.
+
+The native app exposes vectorized User Defined Functions (UDFs) to perform encryption and decryption operations with
+the following protocols :
+
+- AES-GCM (NIST SP 800-38D)
+- AES GCM SIV (RFC 8452)
+- AES XTS (NIST SP 800-38E)
+- ChCha20-Poly1305 (RFC 8439)
 
 ## Setup
 

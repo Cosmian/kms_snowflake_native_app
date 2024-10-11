@@ -28,8 +28,7 @@ END CASE;
 END;
 $$;
 
-GRANT USAGE ON PROCEDURE core.register_single_callback
-(STRING, STRING, STRING) TO APPLICATION ROLE app_public;
+GRANT USAGE ON PROCEDURE core.register_single_callback(STRING, STRING, STRING) TO APPLICATION ROLE app_public;
 
 -- Configuration callback for the `EXTERNAL_ACCESS_REFERENCE` defined in the manifest.yml
 -- The procedure returns a json format object containing information about the EAI to be created, that is
@@ -54,8 +53,7 @@ END CASE;
 END;
 $$;
 
-GRANT USAGE ON PROCEDURE core.get_configuration
-(STRING) TO APPLICATION ROLE app_public;
+GRANT USAGE ON PROCEDURE core.get_configuration(STRING) TO APPLICATION ROLE app_public;
 
 --  4. Create stored procedures using the external access reference from the manifest.yml
 -- The Stored Procedures needs to be created in runtime because EAI reference needs to be set
@@ -374,8 +372,7 @@ OR REPLACE FUNCTION core.decrypt_chacha20_poly1305(key VARCHAR, ciphertext BINAR
 END;
 $$;
 
-GRANT USAGE ON PROCEDURE core.create_eai_objects
-() TO APPLICATION ROLE app_public;
+GRANT USAGE ON PROCEDURE core.create_eai_objects() TO APPLICATION ROLE app_public;
 
 
 
