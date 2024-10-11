@@ -1,0 +1,22 @@
+# This is a project definition file, a required component if you intend to use Snowflake CLI in a project directory such as this template.
+
+definition_version: 2
+entities:
+  cosmian_kms_pkg:
+    type: application package
+    stage: stage_content.cosmian_kms_stage
+    manifest: app/manifest.yml
+    artifacts:
+      - src: app/*
+        dest: ./
+      - src: src/module-api/src/*
+        dest: module-api/
+#      - src: src/module-ui/src/*
+#        dest: streamlit/        
+
+  cosmian_kms_app:
+    type: application
+    from:
+      target: cosmian_kms_pkg
+
+
