@@ -39,7 +39,7 @@ def kmip_post(
         headers=headers,
         data=json.dumps(operation),
         timeout=(120, 120),
-        stream=True
+        stream=False
     )
 
     if res.status_code != 200:

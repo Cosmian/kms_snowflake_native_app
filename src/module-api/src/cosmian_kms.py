@@ -4,9 +4,11 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import List
 import math
-
+import threading
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from lru_cache import LRUCache
 from bulk_data import BulkData
@@ -27,6 +29,32 @@ slog = logging.LoggerAdapter(snowflake_logger, {
     "response": 0
 })
 
+
+# Network requests should have retries 
+retry_strategy = Retry(
+    total=5,
+    backoff_factor=1,
+    status_forcelist=[500, 502, 503, 504],
+    allowed_methods=["POST"],
+    raise_on_status=False,
+)
+adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=100)
+
+# Thread local configuration
+thread_local_data = threading.local()
+
+
+def get_thread_local_session():
+    """
+    Get the session from the thread local data
+    Returns: the session
+    """
+    if not hasattr(thread_local_data, "session"):
+        thread_local_data.session = requests.Session()
+        thread_local_data.session.mount("https://", adapter)
+    return thread_local_data.session
+
+
 # TODO: These values need to be de-harcoded via configuration
 
 # CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
@@ -36,11 +64,11 @@ CONFIGURATION = '{"kms_server_url": "https://kms-snowflake-test.cosmian.dev"}'
 # the heuristic seems to be 5 times the number of cores for 64 bytes plaintexts
 NUM_THREADS = 40
 THRESHOLD = 100000
-session = requests.Session()
 
-LRU_CACHE_SIZE=10
+LRU_CACHE_SIZE = 10
 LRU_CACHE_ENCRYPT = LRUCache(LRU_CACHE_SIZE)
 LRU_CACHE_DECRYPT = LRUCache(LRU_CACHE_SIZE)
+
 
 def set_configuration(configuration: str):
     global CONFIGURATION
@@ -56,6 +84,7 @@ def encrypt_aes_gcm(data: pd.DataFrame):
 
 
 encrypt_aes_gcm._sf_vectorized_input = pd.DataFrame
+
 
 def encrypt_aes_gcm_siv(data: pd.DataFrame):
     return encrypt(data, Algorithm.AES_GCM_SIV)
@@ -86,7 +115,7 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm):
 
     # This is a Pandas Series
     # same key for everyone
-    key_id = df[0][0]  
+    key_id = df[0][0]
     key_id_bytes = key_id.encode('utf-8')
     if df.shape[1] > 2:
         nonce = to_padded_nonce(df[1][0], algorithm)
@@ -148,6 +177,8 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm):
 
     # Post the operations
     t_start = time.perf_counter()
+    # get the session from the thread local
+    session = get_thread_local_session()
     if len(encrypt_requests) == 1:
         slog.debug(f"encrypt: no threadpool")
         results: List[dict] = [kmip_post(configuration, session, encrypt_requests[0])]
@@ -171,8 +202,8 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm):
     # for AES GCM SIV, store the ciphertexts in the cache
     if algorithm == Algorithm.AES_GCM_SIV:
         for ct, pt in zip(ciphertexts, plaintexts):
-            LRU_CACHE_ENCRYPT.put([key_id_bytes, nonce, pt], ct)        
-        
+            LRU_CACHE_ENCRYPT.put([key_id_bytes, nonce, pt], ct)
+
     data_frame = pd.Series(ciphertexts)
     t_parse_encrypt_response_payload = time.perf_counter() - t_start
 
@@ -218,7 +249,9 @@ decrypt_aes_xts._sf_vectorized_input = pd.DataFrame
 def decrypt_chacha20_poly1305(data: pd.DataFrame):
     return decrypt(data, Algorithm.CHACHA20_POLY1305)
 
+
 decrypt_chacha20_poly1305._sf_vectorized_input = pd.DataFrame
+
 
 # Set the maximum batch size 
 # encrypt_aes._sf_max_batch_size = 5000000
@@ -239,7 +272,6 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm):
         nonce = None
         ciphertexts = df[1]
 
-
     # Check if the plaintext is in the cache for AES GCM SIV
     if algorithm == Algorithm.AES_GCM_SIV:
         result: list[bytes] = []
@@ -252,9 +284,9 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm):
         if len(result) == len(ciphertexts):
             slog.debug(f"decrypt cache hit")
             return pd.Series(result)
-    
+
     slog.debug("decrypt cache miss")
-    
+
     # We do not use the bulk data encoding if there is only one ciphertext
     no_bulk_data_encoding = len(ciphertexts) == 1
 
@@ -297,27 +329,36 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm):
 
     # Post the operations
     t_start = time.perf_counter()
+    # get the session from the thread local
+    session = get_thread_local_session()
     if len(decrypt_requests) == 1:
-        results: List[dict] = [kmip_post(configuration, session, decrypt_requests[0])]
+        try:
+            results: List[dict] = [kmip_post(configuration, session, decrypt_requests[0])]
+        except Exception as e:
+            results = []
+            slog.error(f"Error in KMIP POST {e}; silently replacing data with NULL")
     else:
         # Post the operations in parallel
         with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
             results: List[dict] = list(executor.map(partial(kmip_post, configuration, session), decrypt_requests))
     t_post_operations = time.perf_counter() - t_start
 
-    # Parse the response
-    t_start = time.perf_counter()
-    if no_bulk_data_encoding:
-        plaintexts = [parse_decrypt_response(results[0])]
+    if not results:
+        plaintexts = [[] * len(ciphertexts)]
     else:
-        plaintexts = [ct for r in results for ct in BulkData.deserialize(parse_decrypt_response(r)).data]
-        
-    # for AES GCM SIV, store the plaintext in the cache
-    if algorithm == Algorithm.AES_GCM_SIV:
-        for ct, pt in zip(ciphertexts, plaintexts):
-            # nonce is prepended in ciphertext; do not repeat it in the cache key
-            LRU_CACHE_DECRYPT.put([key_id_bytes, ct], pt)
-        
+        # Parse the response
+        t_start = time.perf_counter()
+        if no_bulk_data_encoding:
+            plaintexts = [parse_decrypt_response(results[0])]
+        else:
+            plaintexts = [ct for r in results for ct in BulkData.deserialize(parse_decrypt_response(r)).data]
+
+        # for AES GCM SIV, store the plaintext in the cache
+        if algorithm == Algorithm.AES_GCM_SIV:
+            for ct, pt in zip(ciphertexts, plaintexts):
+                # nonce is prepended in ciphertext; do not repeat it in the cache key
+                LRU_CACHE_DECRYPT.put([key_id_bytes, ct], pt)
+
     data_frame = pd.Series(plaintexts)
     t_parse_decrypt_response_payload = time.perf_counter() - t_start
 

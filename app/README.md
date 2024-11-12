@@ -35,7 +35,7 @@ snow app run -c <connection_name> --warehouse <warehouse_name>
 
 ### Enable the external connection
 
-Got to Data Products -> Apps
+Go to Data Products -> Apps
 Select the `...` and `View Details`
 
 In connections, review and approve the connection.
@@ -89,3 +89,16 @@ SELECT C_CUSTKEY,
 FROM COSMIAN_KMS_APP.ENCRYPTION_TESTS.CUSTOMER_ENCRYPTED;
 ```
 
+## Logging
+
+The app logs are available from `SNOWFLAKE.TELEMETRY.EVENTS`.
+
+```snowflake
+-- Set the logging level to DEBUG for the current session.
+ALTER SESSION SET LOG_LEVEL = DEBUG;
+
+SELECT TIMESTAMP, RECORD, RECORD_ATTRIBUTES, VALUE FROM SNOWFLAKE.TELEMETRY.EVENTS 
+    -- WHERE SCOPE=OBJECT_CONSTRUCT('name', 'kms_decrypt')
+    ORDER BY TIMESTAMP DESC 
+    LIMIT 1000;
+```
