@@ -47,12 +47,3 @@ def kmip_post(
         raise Exception(f"Error {res.status_code} in KMIP POST {res.text}")
 
     return res.json()
-
-    # timeout = httpx.Timeout(60.0, connect=60.0)
-    # with httpx.Client() as client:
-    #     res = client.post(kms_server_url, json=operation, timeout=timeout, headers=headers)
-    #     if res.status_code != 200:
-    #         logger.error(f"Error {res.status_code} in KMIP POST {res.text}")
-    #         raise Exception(f"Error {res.status_code} in KMIP POST {res.text}")
-    # 
-    #     return res.json()
