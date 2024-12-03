@@ -1,5 +1,5 @@
 cachetools==5.3.3
-certifi==2024.6.2
+certifi==2024.7.4
 chardet==5.2.0
 charset-normalizer==3.3.2
 colorama==0.4.6
@@ -11,6 +11,7 @@ idna==3.7
 iniconfig==2.0.0
 jsonpath-ng==1.6.1
 leb128==1.0.8
+numpy~=2.1.2
 orjson==3.10.7
 packaging==24.1
 pandas==2.2.3
@@ -30,3 +31,4 @@ tox==4.15.1
 tzdata==2024.2
 urllib3==2.2.2
 virtualenv==20.26.2
+

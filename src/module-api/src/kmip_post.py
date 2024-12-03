@@ -1,6 +1,5 @@
 import json
 import requests
-# import httpx
 from client_configuration import ClientConfiguration
 import logging
 

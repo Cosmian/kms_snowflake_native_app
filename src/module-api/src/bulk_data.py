@@ -5,6 +5,7 @@ import io
 
 @dataclass
 class BulkData:
+    # BulkData List of byte arrays
     data: list[bytes]
 
     def __init__(self, data: list[bytes]):
@@ -12,9 +13,30 @@ class BulkData:
 
     @staticmethod
     def is_serialized_bulk_data(serialized: bytes) -> bool:
+        """
+        Check if the serialized byte array is a serialized BulkData
+
+        A BulkData is serialized as a list of bytes with a header and a footer.
+        The header is 0x87 followed by the number of items in the list.
+        The footer is the number of items in the list and each item is a byte
+        string followed by the length of the byte string.
+
+        :param serialized: the serialized byte array
+        :return: True if the byte array is a serialized BulkData, False otherwise
+        """
         return len(serialized) > 2 and serialized[0] == 0x87 and serialized[1] == 0x87
 
     def serialize(self) -> bytes:
+        """
+        Serialize the BulkData to a byte array.
+
+        A BulkData is serialized as a list of bytes with a header and a footer.
+        The header is 0x87 followed by the number of items in the list.
+        The footer is the number of items in the list and each item is a byte
+        string followed by the length of the byte string.
+
+        :return: the serialized byte array
+        """
         result = io.BytesIO()
         # Write the header  
         result.write(bytes([0x87, 0x87]))
@@ -28,14 +50,29 @@ class BulkData:
 
     @classmethod
     def deserialize(cls, serialized: bytes) -> 'BulkData':
+        """
+        Deserialize a serialized BulkData to a BulkData object
+
+        The serialized byte array is expected to be a list of bytes with a header and a footer.
+        The header is 0x87 followed by the number of items in the list.
+        The footer is the number of items in the list, and each item is a byte
+        string followed by the length of the byte string.
+
+        :param serialized: the serialized byte arrays
+        :return: the deserialized BulkData object
+        """
         data = io.BytesIO(serialized)
         # read the first two bytes 0x87
-        _header = data.read(2)
+        header = data.read(2)
+        # assert the first two bytes are 0x87
+        assert header == bytes([0x87, 0x87])
         # read the number of items
         num_items, _num_bytes = u.decode_reader(data)
         # Preallocate the list for the result
-        result = [None] * num_items
-        for i in range(num_items):
+        result: list[bytes] = [b'' for _ in range(num_items)]
+        for i in  range(num_items):
             item_length, _ = u.decode_reader(data)
-            result[i] = data.read(item_length)
+            b = data.read(item_length)
+            assert len(b) == item_length, f"Item {i} has length {len(b)}, Expected {item_length} bytes"
+            result[i] = b
         return cls(result)
