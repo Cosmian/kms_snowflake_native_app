@@ -1,5 +1,4 @@
 # TODO: These values need to be de-harcoded via configuration
-from client_configuration import ClientConfiguration
 import logging
 from lru_cache import LRUCache
 
@@ -8,7 +7,6 @@ from lru_cache import LRUCache
 # CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
 # CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
 CONFIGURATION = '{"kms_server_url": "https://kms-snowflake-test.cosmian.dev"}'
-configuration: ClientConfiguration = ClientConfiguration.from_json(CONFIGURATION)
 
 # snowflake Dataframes have no more than 4096 rows so multi-threading is never used.
 # The multi-threading code id left here in case snowflake adds support for larger dataframes.
@@ -32,6 +30,6 @@ slog = logging.LoggerAdapter(snowflake_logger, {
 })
 
 
-def set_configuration(configuration: str):
+def set_configuration(conf: str):
     global CONFIGURATION
-    CONFIGURATION = configuration
+    CONFIGURATION = conf

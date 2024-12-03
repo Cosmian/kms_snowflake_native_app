@@ -4,7 +4,7 @@ import logging
 import time
 import random
 import unittest
-from bulk_data import BulkData
+from operations.bulk_data import BulkData
 
 logger = logging.getLogger(__name__)
 slog = logging.LoggerAdapter(logger, {

@@ -5,19 +5,19 @@ from functools import partial
 from typing import List
 import pandas as pd
 from bulk_data import BulkData
-from initialize import configuration, LRU_CACHE_ENCRYPT,slog,THRESHOLD,NUM_THREADS
-from kmip_encrypt import create_encrypt_request, \
+from client_configuration import ClientConfiguration
+from operations.common import Algorithm, to_padded_iv, split_list
+from initialize import  LRU_CACHE_ENCRYPT, slog, THRESHOLD, NUM_THREADS, logger
+from kmip.kmip_encrypt import create_encrypt_request, \
     parse_encrypt_response
-from kmip_post import kmip_post
-from shared import Algorithm, split_list
+from kmip.kmip_post import kmip_post
 from session import get_thread_local_session
 
 
-def encrypt(df: pd.DataFrame, algorithm: Algorithm):
+def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfiguration):
     """
     snowflake python udf to encrypt data using AES GCM
     """
-    
 
     # This is a Pandas Series
     # same key for everyone
@@ -100,7 +100,8 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm):
         # Post the operations in parallel
         slog.debug(f"encrypt: threadpool with {NUM_THREADS} threads")
         with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-            results: List[dict] = list(executor.map(partial(kmip_post, configuration, get_thread_local_session()), encrypt_requests))
+            results: List[dict] = list(
+                executor.map(partial(kmip_post, configuration, get_thread_local_session()), encrypt_requests))
     t_post_operations = time.perf_counter() - t_start
 
     # Parse the response
@@ -131,4 +132,3 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm):
         }
     )
     return data_frame
-

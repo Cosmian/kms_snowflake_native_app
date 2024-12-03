@@ -1,7 +1,9 @@
 from typing import Optional
 
 import orjson
-from shared import nonce_block, Algorithm
+
+from operations.common import Algorithm
+from operations.kmip.common import nonce_block
 
 
 def create_encrypt_request(key_id: str, plaintext: bytes, algorithm=Algorithm, nonce=Optional[bytes]) -> dict:
