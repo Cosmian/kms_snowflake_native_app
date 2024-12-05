@@ -2,9 +2,9 @@ from typing import Optional
 
 import orjson
 
-from operations.bulk_data import BulkData
-from operations.common import Algorithm
-from operations.kmip.common import nonce_block, mac_block
+from bulk_data import BulkData
+from op_shared import Algorithm
+from kmip_shared import nonce_block, mac_block
 
 
 def create_decrypt_request(

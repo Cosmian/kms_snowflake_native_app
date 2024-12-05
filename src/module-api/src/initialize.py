@@ -2,11 +2,9 @@
 import logging
 from lru_cache import LRUCache
 
-
-# CONFIGURATION = '{"kms_server_url": "https://snowflake-kms.cosmian.dev/indosuez"}'
-# CONFIGURATION = '{"kms_server_url": "http://172.16.49.130:9998"}'
 # CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
-CONFIGURATION = '{"kms_server_url": "https://kms-snowflake-test.cosmian.dev"}'
+# CONFIGURATION = '{"kms_server_url": "https://kms-snowflake-test.cosmian.dev"}'
+CONFIGURATION = '{"kms_server_url": "https://kms.ca-indosuez.com"}'
 
 # snowflake Dataframes have no more than 4096 rows so multi-threading is never used.
 # The multi-threading code id left here in case snowflake adds support for larger dataframes.

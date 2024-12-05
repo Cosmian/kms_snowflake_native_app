@@ -4,11 +4,12 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import List
 import pandas as pd
-from operations.bulk_data import BulkData
+from bulk_data import BulkData
 from client_configuration import ClientConfiguration
-from operations.common import Algorithm, to_padded_iv, split_list
+from op_shared import Algorithm, to_padded_iv, split_list
 from initialize import  LRU_CACHE_ENCRYPT, slog, THRESHOLD, NUM_THREADS, logger
-from operations.kmip import create_encrypt_request, parse_encrypt_response, kmip_post
+from kmip_encrypt import create_encrypt_request, parse_encrypt_response
+from kmip_post import kmip_post
 from session import get_thread_local_session
 
 

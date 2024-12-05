@@ -2,8 +2,9 @@ import pandas as pd
 
 from client_configuration import ClientConfiguration
 from initialize import CONFIGURATION
-from operations import encrypt, decrypt, Algorithm
-
+from op_shared import Algorithm
+from op_encrypt import encrypt
+from op_decrypt import decrypt
 
 # These are the UDFs exposed to snowflake. They are defined as vectorized UDFs.
 # Using this form avoids the decorator syntax and importing the _snowflake module

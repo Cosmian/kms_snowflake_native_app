@@ -1,6 +1,5 @@
 # Cosmian KMS Integration
 
-
 This native app lets you perform encryption and decryption operations in snowflake queries using Cosmian KMS.
 
 Example: query the CUSTOMERS table where the customer `name` is encrypted in the database and you want to decrypt it in
@@ -25,7 +24,11 @@ the following protocols :
 
 ### Prerequisites
 
-Install snowflake-cli and configure a connection to your Snowflake account.
+Install [snowflake-cli](https://docs.snowflake.com/en/developer-guide/snowflake-cli/installation/installation) and
+[configure a connection](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections)
+to your Snowflake account.
+Check [this resource](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#location-of-the-toml-configuration-file)
+to determine the snowflake-cli configuration files used.
 
 ### Deploy the cosmian_kms_app
 
@@ -97,8 +100,9 @@ The app logs are available from `SNOWFLAKE.TELEMETRY.EVENTS`.
 -- Set the logging level to DEBUG for the current session.
 ALTER SESSION SET LOG_LEVEL = DEBUG;
 
-SELECT TIMESTAMP, RECORD, RECORD_ATTRIBUTES, VALUE FROM SNOWFLAKE.TELEMETRY.EVENTS 
-    -- WHERE SCOPE=OBJECT_CONSTRUCT('name', 'kms_decrypt')
-    ORDER BY TIMESTAMP DESC 
-    LIMIT 1000;
+SELECT TIMESTAMP, RECORD, RECORD_ATTRIBUTES, VALUE
+FROM SNOWFLAKE.TELEMETRY.EVENTS
+-- WHERE SCOPE=OBJECT_CONSTRUCT('name', 'kms_decrypt')
+ORDER BY TIMESTAMP DESC
+LIMIT 1000;
 ```

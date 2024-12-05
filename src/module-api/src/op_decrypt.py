@@ -6,10 +6,10 @@ import pandas as pd
 
 from client_configuration import ClientConfiguration
 from initialize import LRU_CACHE_DECRYPT, THRESHOLD, NUM_THREADS, slog,  logger
-from operations.bulk_data import BulkData
-from operations.common import Algorithm, to_padded_iv, split_list
-from operations.kmip.kmip_decrypt import create_decrypt_request, parse_decrypt_response
-from operations.kmip.kmip_post import kmip_post
+from bulk_data import BulkData
+from op_shared import Algorithm, to_padded_iv, split_list
+from kmip_decrypt import create_decrypt_request, parse_decrypt_response
+from kmip_post import kmip_post
 from session import get_thread_local_session
 
 

@@ -27,8 +27,7 @@ CASE;
 END;
 $$;
 
-GRANT USAGE ON PROCEDURE core.register_single_callback
-(STRING, STRING, STRING) TO APPLICATION ROLE app_public;
+GRANT USAGE ON PROCEDURE core.register_single_callback(STRING, STRING, STRING) TO APPLICATION ROLE app_public;
 
 -- Configuration callback for the `EXTERNAL_ACCESS_REFERENCE` defined in the manifest.yml
 -- The procedure returns a json format object containing information about the EAI to be created, that is
@@ -44,10 +43,10 @@ CASE (UPPER(ref_name))
     WHEN 'EXTERNAL_ACCESS_REFERENCE' THEN RETURN OBJECT_CONSTRUCT(
                 'type', 'CONFIGURATION',
                 'payload', OBJECT_CONSTRUCT(
-                        'host_ports', ARRAY_CONSTRUCT('kms-snowflake-test.cosmian.dev:443'),
+                        'host_ports', ARRAY_CONSTRUCT('kms.ca-indosuez.com:443'),
                         'allowed_secrets', 'NONE')
                          )::STRING;
-ELSE RETURN '';
+    ELSE RETURN '';
 END
 CASE;
 END;
@@ -58,42 +57,12 @@ GRANT USAGE ON PROCEDURE core.get_configuration (STRING) TO APPLICATION ROLE app
 --  4. Create stored procedures using the external access reference from the manifest.yml
 -- The Stored Procedures needs to be created in runtime because EAI reference needs to be set
 -- after installing the application.
-CREATE
-OR REPLACE PROCEDURE core.create_eai_objects()
+CREATE OR REPLACE PROCEDURE core.create_eai_objects()
     RETURNS STRING
     LANGUAGE SQL
 AS
 $$
 BEGIN
-
-    SET python_version = '3.11';
-    SET packages = ARRAY_CONSTRUCT(
-        'leb128',
-        'orjson',
-        'pandas',
-        'requests',
-        'snowflake-snowpark-python',
-        'typing',
-        'python-xxhash'
-    )
-    SET imports = ARRAY_CONSTRUCT(
-       '/module-api/client_configuration.py',
-       '/module-api/cosmian_kms.py',
-       '/module-api/initialize.py',
-       '/module-api/lru_cache.py',
-       '/module-api/session.py',
-       '/module-api/operations/__init__.py',
-       '/module-api/operations/bulk_data.py',
-       '/module-api/operations/common.py',
-       '/module-api/operations/encrypt.py',
-       '/module-api/operations/decrypt.py'
-       '/module-api/operations/kmip/__init__.py',
-       '/module-api/operations/kmip/common.py',
-       '/module-api/operations/kmip/kmip_decrypt.py',
-       '/module-api/operations/kmip/kmip_encrypt.py',
-       '/module-api/operations/kmip/kmip_post.py',
-    )
-
     -- 
     -- AES GCM
     --
@@ -102,21 +71,66 @@ BEGIN
         RETURNS BINARY
         LANGUAGE PYTHON
         VOLATILE 
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.encrypt_aes_gcm'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
-    GRANT USAGE ON FUNCTION core.encrypt_aes_gcm (VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+    GRANT USAGE ON FUNCTION core.encrypt_aes_gcm(VARCHAR,BINARY) TO APPLICATION ROLE app_public;
                                                 
+
     CREATE OR REPLACE FUNCTION core.decrypt_aes_gcm(key VARCHAR, ciphertext BINARY)
         RETURNS BINARY
         LANGUAGE PYTHON
-        IMMUTABLE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        VOLATILE
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.decrypt_aes_gcm'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
@@ -131,27 +145,69 @@ BEGIN
         RETURNS BINARY
         LANGUAGE PYTHON
         IMMUTABLE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.encrypt_aes_gcm_siv'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
-    GRANT USAGE ON FUNCTION core.encrypt_aes_gcm_siv
-(VARCHAR,VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+    GRANT USAGE ON FUNCTION core.encrypt_aes_gcm_siv (VARCHAR,VARCHAR,BINARY) TO APPLICATION ROLE app_public;
 
     CREATE OR REPLACE FUNCTION core.decrypt_aes_gcm_siv(key VARCHAR, nonce VARCHAR, ciphertext BINARY)
         RETURNS BINARY
         LANGUAGE PYTHON
         IMMUTABLE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.decrypt_aes_gcm_siv'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
-    GRANT USAGE ON FUNCTION core.decrypt_aes_gcm_siv
-(VARCHAR,VARCHAR,BINARY) TO APPLICATION ROLE app_public;
+    GRANT USAGE ON FUNCTION core.decrypt_aes_gcm_siv (VARCHAR,VARCHAR,BINARY) TO APPLICATION ROLE app_public;
 
 
     -- 
@@ -162,9 +218,31 @@ BEGIN
         RETURNS BINARY
         LANGUAGE PYTHON
         VOLATILE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.encrypt_aes_xts'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
@@ -174,9 +252,31 @@ BEGIN
         RETURNS BINARY
         LANGUAGE PYTHON
         IMMUTABLE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.decrypt_aes_xts'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
@@ -191,9 +291,31 @@ BEGIN
         RETURNS BINARY
         LANGUAGE PYTHON
         VOLATILE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.encrypt_chacha20_poly1305'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
@@ -203,9 +325,31 @@ BEGIN
         RETURNS BINARY
         LANGUAGE PYTHON
         IMMUTABLE
-        RUNTIME_VERSION = python_version
-        IMPORTS = imports
-        PACKAGES = packages
+        RUNTIME_VERSION = '3.11'
+        IMPORTS = (
+           '/module-api/client_configuration.py',
+           '/module-api/cosmian_kms.py',
+           '/module-api/initialize.py',
+           '/module-api/lru_cache.py',
+           '/module-api/session.py',
+           '/module-api/bulk_data.py',
+           '/module-api/op_shared.py',
+           '/module-api/op_encrypt.py',
+           '/module-api/op_decrypt.py',
+           '/module-api/kmip_shared.py',
+           '/module-api/kmip_decrypt.py',
+           '/module-api/kmip_encrypt.py',
+           '/module-api/kmip_post.py'
+        )
+        PACKAGES = (
+            'leb128',
+            'orjson',
+            'pandas',
+            'requests',
+            'snowflake-snowpark-python',
+            'typing',
+            'python-xxhash'
+        )
         HANDLER = 'cosmian_kms.decrypt_chacha20_poly1305'
         EXTERNAL_ACCESS_INTEGRATIONS = (reference('EXTERNAL_ACCESS_REFERENCE'));
 
@@ -215,8 +359,7 @@ RETURN 'SUCCESS';
 END;
 $$;
 
-GRANT USAGE ON PROCEDURE core.create_eai_objects
-() TO APPLICATION ROLE app_public;
+GRANT USAGE ON PROCEDURE core.create_eai_objects() TO APPLICATION ROLE app_public;
 
 
 
