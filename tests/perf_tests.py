@@ -69,7 +69,6 @@ def test_performance_aes_gcm_siv_udf():
 def _performance_aes_gcm_siv_udf(batch_size: int):
     plaintext_size = 64
     slog.info(f"Testing AES GCM SIV performance with batch size {batch_size}")
-    key_id = '0d319307-f766-4869-b90a-02096edb9431'
     nonce_str = 'abcde'
 
     # Generate a random batch of data
@@ -100,7 +99,7 @@ def _performance_aes_gcm_siv_udf(batch_size: int):
 def test_aes_gcm_siv_cache():
     """
     Test the cache for AES GCM SIV
-    The logs should show that two cache hits at the end of the test
+    The logs should show that two caches hit at the end of the test
     """
     nonce_str = 'abcde'
     plaintexts = [b'1234567890', b'abcdefghijk']
