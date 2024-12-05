@@ -43,7 +43,7 @@ CASE (UPPER(ref_name))
     WHEN 'EXTERNAL_ACCESS_REFERENCE' THEN RETURN OBJECT_CONSTRUCT(
                 'type', 'CONFIGURATION',
                 'payload', OBJECT_CONSTRUCT(
-                        'host_ports', ARRAY_CONSTRUCT('kms.ca-indosuez.com:443'),
+                        'host_ports', ARRAY_CONSTRUCT('kms-snowflake-test.cosmian.dev:443'),
                         'allowed_secrets', 'NONE')
                          )::STRING;
     ELSE RETURN '';

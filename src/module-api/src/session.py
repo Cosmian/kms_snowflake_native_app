@@ -3,7 +3,6 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 import threading
 
-
 # Network configuration
 # Network requests have retries 
 retry_strategy = Retry(
@@ -13,7 +12,7 @@ retry_strategy = Retry(
     allowed_methods=["POST"],
     raise_on_status=False,
 )
-adapter = HTTPAdapter(max_retries=retry_strategy, pool_maxsize=50)
+adapter = HTTPAdapter(max_retries=retry_strategy, pool_maxsize=100, pool_connections=100)
 
 # Thread local configuration
 thread_local_data = threading.local()
@@ -31,4 +30,3 @@ def get_thread_local_session() -> requests.Session:
         thread_local_data.session = requests.Session()
         thread_local_data.session.mount("https://", adapter)
     return thread_local_data.session
-
