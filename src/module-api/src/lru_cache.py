@@ -1,16 +1,6 @@
-import logging
 from collections import deque
 import threading
 from xxhash import xxh64
-
-snowflake_logger = logging.getLogger("kms_decrypt")
-logger = snowflake_logger
-slog = logging.LoggerAdapter(snowflake_logger, {
-    "size": 0,
-    "request": 0,
-    "post": 0,
-    "response": 0
-})
 
 
 def key_hash(key: bytes | list[bytes]) -> int:
@@ -35,6 +25,7 @@ def key_hash(key: bytes | list[bytes]) -> int:
     else:
         h.update(key)
     return h.intdigest()
+
 
 ###
 # The LRUCache is a least recently used cache. It is used to store the result of the

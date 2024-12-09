@@ -1,11 +1,12 @@
 import math
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 import pandas as pd
 
 from client_configuration import ClientConfiguration
-from initialize import LRU_CACHE_DECRYPT, THRESHOLD, NUM_THREADS, slog,  logger
+from initialize import LRU_CACHE_DECRYPT, THRESHOLD, NUM_THREADS, slog, logger
 from bulk_data import BulkData
 from op_shared import Algorithm, to_padded_iv, split_list
 from kmip_decrypt import create_decrypt_request, parse_decrypt_response
@@ -13,7 +14,7 @@ from kmip_post import kmip_post
 from session import get_thread_local_session
 
 
-def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfiguration):
+def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfiguration) -> (pd.Series, float):
     """
     snowflake python udf to decrypt data using a symmetric key scheme 
     """
@@ -45,8 +46,6 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
             slog.debug(f"decrypt cache hit")
             return pd.Series(result)
 
-    slog.debug("decrypt cache miss")
-
     # We do not use the bulk data encoding if there is only one ciphertext
     no_bulk_data_encoding = len(ciphertexts) == 1
 
@@ -68,7 +67,6 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
             # There are multiple ciphertexts, but their number is small (i.e., below the threshold)
             # We do one query, bulk encoding. This is where all snowflake requests will end up
             # currently as the snowflake dataframes are always 4096 rows, much lower than the threshold.
-            slog.debug(f"decrypt: no threadpool")
             decrypt_requests = [
                 create_decrypt_request(
                     key_id=key_id,
@@ -78,7 +76,6 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
                 )
             ]
         else:
-            slog.debug(f"decrypt: threadpool with {NUM_THREADS} threads")
             # Split the ciphertexts into chunks
             splits = math.floor(len(ciphertexts) / THRESHOLD) + 1
             split_series = split_list(ciphertexts, splits)
@@ -122,16 +119,11 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
                 # nonce is prepended in ciphertext; do not repeat it in the cache key
                 LRU_CACHE_DECRYPT.put([key_id_bytes, ct], pt)
 
-    data_frame = pd.Series(plaintexts)
+    series = pd.Series(plaintexts)
     t_parse_decrypt_response_payload = time.perf_counter() - t_start
 
-    logger.info(
-        "decrypt_aes",
-        extra={
-            "size": len(df[1]),
-            "request": t_prepare_requests,
-            "post": t_post_operations,
-            "response": t_parse_decrypt_response_payload
-        }
+    logger.debug(
+        f"decrypt {algorithm}, size: {len(ciphertexts)}, POST: {t_post_operations * 1000 / len(ciphertexts):.3f} ms/c",
+        extra={"thread_id": threading.get_ident()}
     )
-    return data_frame
+    return series, t_prepare_requests + t_post_operations + t_parse_decrypt_response_payload

@@ -5,15 +5,7 @@ import time
 import random
 import unittest
 from bulk_data import BulkData
-
-logger = logging.getLogger(__name__)
-slog = logging.LoggerAdapter(logger, {
-    "id": "",
-    "size": 0,
-    "request": 0,
-    "post": 0,
-    "response": 0
-})
+from initialize import slog
 
 
 def benchmark_bulk_data(bulk_data) -> BulkData:

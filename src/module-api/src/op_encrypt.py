@@ -1,4 +1,5 @@
 import math
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
@@ -7,13 +8,13 @@ import pandas as pd
 from bulk_data import BulkData
 from client_configuration import ClientConfiguration
 from op_shared import Algorithm, to_padded_iv, split_list
-from initialize import  LRU_CACHE_ENCRYPT, slog, THRESHOLD, NUM_THREADS, logger
+from initialize import LRU_CACHE_ENCRYPT, slog, THRESHOLD, NUM_THREADS, logger
 from kmip_encrypt import create_encrypt_request, parse_encrypt_response
 from kmip_post import kmip_post
 from session import get_thread_local_session
 
 
-def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfiguration):
+def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfiguration) -> (pd.Series, float):
     """
     snowflake python udf to encrypt data using AES GCM
     """
@@ -43,8 +44,6 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
         if len(result) == len(plaintexts):
             slog.debug(f"encrypt cache hit")
             return pd.Series(result)
-
-    slog.debug("encrypt cache miss")
 
     # We do not use the bulk data encoding if there is only one plaintext
     no_bulk_data_encoding = len(plaintexts) == 1
@@ -91,13 +90,10 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
     # Post the operations
     t_start = time.perf_counter()
     # get the session from the thread local
-    session = get_thread_local_session()
     if len(encrypt_requests) == 1:
-        slog.debug(f"encrypt: no threadpool")
-        results: List[dict] = [kmip_post(configuration, session, encrypt_requests[0])]
+        results: List[dict] = [kmip_post(configuration, get_thread_local_session(), encrypt_requests[0])]
     else:
         # Post the operations in parallel
-        slog.debug(f"encrypt: threadpool with {NUM_THREADS} threads")
         with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
             results: List[dict] = list(
                 executor.map(partial(kmip_post, configuration, get_thread_local_session()), encrypt_requests))
@@ -118,16 +114,12 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
         for ct, pt in zip(ciphertexts, plaintexts):
             LRU_CACHE_ENCRYPT.put([key_id_bytes, nonce, pt], ct)
 
-    data_frame = pd.Series(ciphertexts)
+    series = pd.Series(ciphertexts)
     t_parse_encrypt_response_payload = time.perf_counter() - t_start
 
     logger.info(
-        "encrypt_aes",
-        extra={
-            "size": len(plaintexts),
-            "request": t_prepare_requests,
-            "post": t_post_operations,
-            "response": t_parse_encrypt_response_payload
-        }
+        f"encrypt: {algorithm}, size: {len(plaintexts)}, POST: {t_post_operations * 1000000 / len(ciphertexts):.3f} µs/c" +
+        f" Overhead: {(t_prepare_requests + t_parse_encrypt_response_payload) * 1000000 / len(ciphertexts):.3f} µs/c",
+        extra={"thread_id": threading.get_ident()}
     )
-    return data_frame
+    return series, t_post_operations + t_prepare_requests + t_parse_encrypt_response_payload

@@ -27,6 +27,7 @@ def get_thread_local_session() -> requests.Session:
     Returns: the session
     """
     if not hasattr(thread_local_data, "session"):
-        thread_local_data.session = requests.Session()
-        thread_local_data.session.mount("https://", adapter)
+        session = requests.Session()
+        session.mount("https://", adapter)
+        thread_local_data.session = session
     return thread_local_data.session

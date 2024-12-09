@@ -1,5 +1,6 @@
 # TODO: These values need to be de-hardcoded via configuration
 import logging
+
 from lru_cache import LRUCache
 
 # CONFIGURATION = '{"kms_server_url": "http://localhost:9998"}'
@@ -18,13 +19,9 @@ LRU_CACHE_ENCRYPT = LRUCache(LRU_CACHE_SIZE)
 LRU_CACHE_DECRYPT = LRUCache(LRU_CACHE_SIZE)
 
 # Initialize the logger
-snowflake_logger = logging.getLogger("kms_decrypt")
-logger = snowflake_logger
-slog = logging.LoggerAdapter(snowflake_logger, {
-    "size": 0,
-    "request": 0,
-    "post": 0,
-    "response": 0
+logger = logging.getLogger("cosmian_kms")
+slog = logging.LoggerAdapter(logger, {
+    "thread_id": -1,
 })
 
 
