@@ -1,16 +1,15 @@
-import math
+import threading
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
+
 import pandas as pd
 
-from client_configuration import ClientConfiguration
-from initialize import LRU_CACHE_DECRYPT, THRESHOLD, NUM_THREADS, slog, logger
 from bulk_data import BulkData
-from op_shared import Algorithm, to_padded_iv, split_list
+from client_configuration import ClientConfiguration
+from initialize import LRU_CACHE_DECRYPT, slog, logger
 from kmip_decrypt import create_decrypt_request, parse_decrypt_response
 from kmip_post import kmip_post
+from op_shared import Algorithm, to_padded_iv
 from session import get_thread_local_session
 
 
@@ -51,79 +50,54 @@ def decrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
 
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
-        decrypt_requests = [
-            create_decrypt_request(
-                key_id=key_id,
-                ciphertext=ciphertexts[0],
-                algorithm=algorithm,
-                nonce=iv
-            )
-        ]
+        decrypt_request = create_decrypt_request(
+            key_id=key_id,
+            ciphertext=ciphertexts[0],
+            algorithm=algorithm,
+            nonce=iv
+        )
     else:
         # got AES GCM SIV, prepend all ciphertexts with the nonce
         if algorithm == Algorithm.AES_GCM_SIV:
             ciphertexts = [iv + ct for ct in ciphertexts]
-        if len(ciphertexts) <= THRESHOLD:
-            # There are multiple ciphertexts, but their number is small (i.e., below the threshold)
-            # We do one query, bulk encoding. This is where all snowflake requests will end up
-            # currently as the snowflake dataframes are always 4096 rows, much lower than the threshold.
-            decrypt_requests = [
-                create_decrypt_request(
-                    key_id=key_id,
-                    ciphertext=BulkData(ciphertexts),
-                    algorithm=algorithm,
-                    nonce=None
-                )
-            ]
-        else:
-            # Split the ciphertexts into chunks
-            splits = math.floor(len(ciphertexts) / THRESHOLD) + 1
-            split_series = split_list(ciphertexts, splits)
-            decrypt_requests = [create_decrypt_request(
-                key_id=key_id,
-                ciphertext=BulkData(chunk),
-                algorithm=algorithm,
-                nonce=None
-            ) for chunk in split_series]
+        decrypt_request = create_decrypt_request(
+            key_id=key_id,
+            ciphertext=BulkData(ciphertexts),
+            algorithm=algorithm,
+            nonce=None
+        )
     t_prepare_requests = time.perf_counter() - t_start
 
     # Post the operations
     t_start = time.perf_counter()
     # get the session from the thread local
     session = get_thread_local_session()
-    if len(decrypt_requests) == 1:
-        try:
-            results: list[dict] = [kmip_post(configuration, session, decrypt_requests[0])]
-        except Exception as e:
-            results = []
-            slog.error(f"Error in KMIP POST {e}; silently replacing data with NULL")
-    else:
-        # Post the operations in parallel
-        with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-            results: list[dict] = list(executor.map(partial(kmip_post, configuration, session), decrypt_requests))
+    try:
+        result: dict = kmip_post(configuration, session, decrypt_request)
+    except Exception as e:
+        slog.error(f"Error in KMIP POST {e}")
+        raise e
     t_post_operations = time.perf_counter() - t_start
 
-    if not results:
-        plaintexts = [[] * len(ciphertexts)]
+    # Parse the response
+    t_start = time.perf_counter()
+    if no_bulk_data_encoding:
+        plaintexts = [parse_decrypt_response(result)]
     else:
-        # Parse the response
-        t_start = time.perf_counter()
-        if no_bulk_data_encoding:
-            plaintexts = [parse_decrypt_response(results[0])]
-        else:
-            plaintexts = [ct for r in results for ct in BulkData.deserialize(parse_decrypt_response(r)).data]
+        plaintexts = BulkData.deserialize(parse_decrypt_response(result)).data
 
-        # for AES GCM SIV, store the plaintext in the cache
-        if algorithm == Algorithm.AES_GCM_SIV:
-            for ct, pt in zip(ciphertexts, plaintexts):
-                # nonce is prepended in ciphertext; do not repeat it in the cache key
-                LRU_CACHE_DECRYPT.put([key_id_bytes, ct], pt)
+    # for AES GCM SIV, store the plaintext in the cache
+    if algorithm == Algorithm.AES_GCM_SIV:
+        for ct, pt in zip(ciphertexts, plaintexts):
+            # nonce is prepended in ciphertext; do not repeat it in the cache key
+            LRU_CACHE_DECRYPT.put([key_id_bytes, ct], pt)
 
     series = pd.Series(plaintexts)
     t_parse_decrypt_response_payload = time.perf_counter() - t_start
 
     logger.debug(
-        f"decrypt {algorithm}, size: {len(ciphertexts)}, POST: {t_post_operations * 1000 / len(ciphertexts):.3f} ms/c",
+        f"decrypt: {algorithm}, size: {len(plaintexts)}, POST: {t_post_operations * 1000000 / len(ciphertexts):.3f} µs/c" +
+        f" Overhead: {(t_prepare_requests + t_parse_decrypt_response_payload) * 1000000 / len(ciphertexts):.3f} µs/c",
         extra={"thread_id": threading.get_ident()}
     )
     return series, t_prepare_requests + t_post_operations + t_parse_decrypt_response_payload

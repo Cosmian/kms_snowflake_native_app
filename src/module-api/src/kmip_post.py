@@ -28,15 +28,15 @@ def kmip_post(
     #     "Content-Type": "application/json",
     #     "Connection": "close",
     # }
+    headers = {}
 
-    # if configuration.kms_access_token is not None:
-    #     headers["Authorization"] = "Bearer " + configuration.kms_access_token
+    if configuration.kms_access_token is not None:
+        headers["Authorization"] = "Bearer " + configuration.kms_access_token
 
     res = session.post(
         kms_server_url,
-        # headers=headers,
+        headers=headers,
         json=operation,
-        # data=json.dumps(operation),
         timeout=(120, 120),
         stream=True,
     )

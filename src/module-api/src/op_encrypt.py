@@ -1,16 +1,14 @@
-import math
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-from typing import List
+
 import pandas as pd
+
 from bulk_data import BulkData
 from client_configuration import ClientConfiguration
-from op_shared import Algorithm, to_padded_iv, split_list
-from initialize import LRU_CACHE_ENCRYPT, slog, THRESHOLD, NUM_THREADS, logger
+from initialize import LRU_CACHE_ENCRYPT, slog, logger
 from kmip_encrypt import create_encrypt_request, parse_encrypt_response
 from kmip_post import kmip_post
+from op_shared import Algorithm, to_padded_iv
 from session import get_thread_local_session
 
 
@@ -51,60 +49,33 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
         # There is only one plaintext, no bulk encoding
-        encrypt_requests = [
-            create_encrypt_request(
-                key_id=key_id,
-                plaintext=plaintexts[0],
-                algorithm=algorithm,
-                nonce=nonce
-            )
-        ]
+        encrypt_request = create_encrypt_request(
+            key_id=key_id,
+            plaintext=plaintexts[0],
+            algorithm=algorithm,
+            nonce=nonce
+        )
     else:
-        if len(plaintexts) <= THRESHOLD:
-            # There are multiple plaintexts but their number is small (i.e. below the threshold)
-            # We do one query, bulk encoding. This is where all snowflake requests will end up
-            # currently as the snowflake dataframes are always 4096 rows, much lower than the threshold.
-            encrypt_requests = [
-                create_encrypt_request(
-                    key_id=key_id,
-                    plaintext=BulkData(plaintexts).serialize(),
-                    algorithm=algorithm,
-                    nonce=nonce
-                )
-            ]
-        else:
-            # If the numer of row sis above the threshold (never happens currently)
-            # Split the plaintexts into chunks which will be sent over multiple threads
-            splits = math.floor(len(plaintexts) / THRESHOLD) + 1
-            split_series = split_list(plaintexts, splits)
-            encrypt_requests = [
-                create_encrypt_request(
-                    key_id=key_id,
-                    plaintext=BulkData(chunk).serialize(), algorithm
-                    =algorithm,
-                    nonce=nonce
-                ) for chunk in
-                split_series]
+        encrypt_request = create_encrypt_request(
+            key_id=key_id,
+            plaintext=BulkData(plaintexts).serialize(),
+            algorithm=algorithm,
+            nonce=nonce
+        )
     t_prepare_requests = time.perf_counter() - t_start
 
     # Post the operations
     t_start = time.perf_counter()
     # get the session from the thread local
-    if len(encrypt_requests) == 1:
-        results: List[dict] = [kmip_post(configuration, get_thread_local_session(), encrypt_requests[0])]
-    else:
-        # Post the operations in parallel
-        with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-            results: List[dict] = list(
-                executor.map(partial(kmip_post, configuration, get_thread_local_session()), encrypt_requests))
+    result: dict = kmip_post(configuration, get_thread_local_session(), encrypt_request)
     t_post_operations = time.perf_counter() - t_start
 
     # Parse the response
     t_start = time.perf_counter()
     if no_bulk_data_encoding:
-        ciphertexts = [parse_encrypt_response(results[0])]
+        ciphertexts = [parse_encrypt_response(result)]
     else:
-        ciphertexts = [ct for r in results for ct in BulkData.deserialize(parse_encrypt_response(r)).data]
+        ciphertexts = BulkData.deserialize(parse_encrypt_response(result)).data
     # For AES GCM SIV, remove the nonce from the ciphertext
     if algorithm == Algorithm.AES_GCM_SIV:
         ciphertexts = [ct[12:] for ct in ciphertexts]
@@ -117,7 +88,7 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
     series = pd.Series(ciphertexts)
     t_parse_encrypt_response_payload = time.perf_counter() - t_start
 
-    logger.info(
+    logger.debug(
         f"encrypt: {algorithm}, size: {len(plaintexts)}, POST: {t_post_operations * 1000000 / len(ciphertexts):.3f} µs/c" +
         f" Overhead: {(t_prepare_requests + t_parse_encrypt_response_payload) * 1000000 / len(ciphertexts):.3f} µs/c",
         extra={"thread_id": threading.get_ident()}
