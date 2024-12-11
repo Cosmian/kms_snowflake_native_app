@@ -88,7 +88,7 @@ def encrypt(df: pd.DataFrame, algorithm: Algorithm, configuration: ClientConfigu
     series = pd.Series(ciphertexts)
     t_parse_encrypt_response_payload = time.perf_counter() - t_start
 
-    logger.debug(
+    logger.info(
         f"encrypt: {algorithm}, size: {len(plaintexts)}, POST: {t_post_operations * 1000000 / len(ciphertexts):.3f} µs/c" +
         f" Overhead: {(t_prepare_requests + t_parse_encrypt_response_payload) * 1000000 / len(ciphertexts):.3f} µs/c",
         extra={"thread_id": threading.get_ident()}

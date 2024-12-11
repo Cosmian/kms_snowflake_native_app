@@ -1,4 +1,3 @@
-import json
 import requests
 from client_configuration import ClientConfiguration
 
@@ -24,11 +23,9 @@ def kmip_post(
     # see this for user facing the same issue:
     # https://snowflake.discourse.group/t/i-have-a-stored-procedure-that-utilizes-a-network-access-rules-to-make-external-calls-that-was-working-flawlessly-for-months-and-without-any-change-in-the-code-im-getting-oserror-errno-99-cannot-assign-requested-address-why/4642
     kms_server_url = configuration.kms_server_url + "/kmip/2_1"
-    # headers = {
-    #     "Content-Type": "application/json",
-    #     "Connection": "close",
-    # }
-    headers = {}
+    headers = {
+        # "Connection": "close",
+    }
 
     if configuration.kms_access_token is not None:
         headers["Authorization"] = "Bearer " + configuration.kms_access_token
