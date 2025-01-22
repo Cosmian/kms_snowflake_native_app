@@ -20,9 +20,12 @@ LRU_CACHE_DECRYPT = LRUCache(LRU_CACHE_SIZE)
 
 # Initialize the logger
 logger = logging.getLogger("cosmian_kms")
-slog = logging.LoggerAdapter(logger, {
-    "thread_id": -1,
-})
+slog = logging.LoggerAdapter(
+    logger,
+    {
+        "thread_id": -1,
+    },
+)
 
 
 def set_configuration(conf: str):
